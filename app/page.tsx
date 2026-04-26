@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HeroSection } from "@/components/HeroSection";
 import { SafetyBanner } from "@/components/SafetyBanner";
 import { SampleCaseSelector } from "@/components/SampleCaseSelector";
@@ -15,6 +15,7 @@ import { ClinicianReferralCard } from "@/components/ClinicianReferralCard";
 import { AuditLogPanel } from "@/components/AuditLogPanel";
 import { ProviderStatusBadge } from "@/components/ProviderStatusBadge";
 import { ArchitectureExplainer } from "@/components/ArchitectureExplainer";
+import { AgentFlowOverlay } from "@/components/AgentFlowOverlay";
 import { getSampleCase } from "@/lib/data/sampleCases";
 import type {
   Questionnaire,
@@ -49,6 +50,9 @@ export default function HomePage() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<ScreeningSession | null>(null);
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [pendingSession, setPendingSession] = useState<ScreeningSession | null>(null);
+  const [overlayDone, setOverlayDone] = useState(false);
 
   function pickSample(id: string | null) {
     setSelectedSampleId(id);
@@ -72,6 +76,9 @@ export default function HomePage() {
     }
     setRunning(true);
     setSession(null);
+    setPendingSession(null);
+    setOverlayDone(false);
+    setOverlayOpen(true);
     try {
       const body =
         selectedSampleId !== null
@@ -100,22 +107,54 @@ export default function HomePage() {
         throw new Error(data.error ?? `HTTP ${res.status}`);
       }
       const data = (await res.json()) as ScreeningSession;
-      setSession(data);
-      // Smooth scroll to results
+      setPendingSession(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+      setOverlayOpen(false);
+      setRunning(false);
+    }
+  }
+
+  // When BOTH the overlay animation finishes AND the API has returned,
+  // commit the session and close the overlay.
+  useEffect(() => {
+    if (overlayDone && pendingSession) {
+      setSession(pendingSession);
+      setOverlayOpen(false);
+      setRunning(false);
+      setOverlayDone(false);
+      setPendingSession(null);
       setTimeout(() => {
         document.getElementById("results")?.scrollIntoView({ behavior: "smooth" });
       }, 50);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setRunning(false);
     }
+  }, [overlayDone, pendingSession]);
+
+  function handleOverlaySkip() {
+    // User pressed ESC or clicked Skip. If the API already returned, commit it
+    // immediately. Otherwise, just close — onComplete will fire later.
+    if (pendingSession) {
+      setSession(pendingSession);
+      setPendingSession(null);
+    }
+    setOverlayOpen(false);
+    setRunning(false);
+    setOverlayDone(false);
+    setTimeout(() => {
+      document.getElementById("results")?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
   }
 
   const inputReady = selectedSampleId !== null || upload !== null;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <AgentFlowOverlay
+        open={overlayOpen}
+        session={pendingSession}
+        onSkip={handleOverlaySkip}
+        onComplete={() => setOverlayDone(true)}
+      />
       <HeroSection />
 
       <div className="mt-6">
