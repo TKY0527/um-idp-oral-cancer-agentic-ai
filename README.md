@@ -136,7 +136,7 @@ Open <http://localhost:3000>, pick a sample case, click **Run Agentic AI Screeni
 2. In `.env.local`:
    ```env
    GEMINI_API_KEY=YOUR_KEY_HERE
-   GEMINI_MODEL=gemini-2.0-flash
+   GEMINI_MODEL=gemini-2.5-flash
    ```
 3. Restart `npm run dev`.
 4. In the UI, pick **Gemini Vision** under "Run agentic AI screening", then upload an image.
