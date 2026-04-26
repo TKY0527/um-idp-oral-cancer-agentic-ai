@@ -1,42 +1,48 @@
-# Agentic AI for Oral Cancer Screening using a Smart Toothbrush IoT Concept
+# 🦷 Agentic AI for Oral Cancer Screening
 
-A university **Integrated Design Project (IDP)** prototype that demonstrates a
-hierarchical multi-agent AI system for oral cancer screening. The vision step is
-pluggable: it can use **Gemini Vision**, **Claude Vision**, a fully **offline mock
-provider**, or a **future custom-trained model** served via FastAPI — all behind
-the same agent contract.
-
-> ⚠️ **This prototype is not a medical diagnosis. It is an educational oral
-> cancer screening demonstration. Please consult a qualified dentist or doctor
-> for proper diagnosis.**
-
----
-
-## 1. Screenshot
-
-> _Add a screenshot of the running app here once the team has captured one._
+> **Smart Toothbrush IoT Concept · University Integrated Design Project (IDP)**
 >
-> Suggested path: `docs/screenshot.png`
+> A hierarchical multi-agent AI system that screens for oral cancer-like signs from an oral-cavity image, simulated smart-toothbrush telemetry, and a patient questionnaire — with a transparent agent-by-agent audit trail.
+
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
+[![Status](https://img.shields.io/badge/status-prototype-purple)]()
+[![License](https://img.shields.io/badge/license-Educational%20use-lightgrey)]()
+
+> ⚠️ **This prototype is not a medical diagnosis. It is an educational oral cancer screening demonstration. Please consult a qualified dentist or doctor for proper diagnosis.**
 
 ---
 
-## 2. Medical safety disclaimer
+## 🎯 What it does
 
-This software is built **for university coursework demonstration only**. It is
-not a medical device, has not been clinically validated, does not store patient
-data, and must never be used to make health decisions. The Vision Screening
-Agent is explicitly prompted to never claim certainty, the Risk Scoring Agent
-caps the score at 55 when image quality is poor, the Patient Communication
-Agent never says "confirmed cancer", and every result is wrapped with the
-mandatory disclaimer above.
+When the user provides an oral-cavity image (or picks one of 4 built-in sample cases) and fills in a short risk questionnaire, an **Orchestrator Agent** dispatches **5 specialised sub-agents** in sequence and produces:
+
+- A simulated smart-toothbrush telemetry report (image quality, coverage, session validity)
+- A vision screening result (visual finding, suspected region, oral-cancer-like probability)
+- A 0–100 cancer risk score with categorical band (Low / Medium / High)
+- A calm, plain-language patient report
+- A structured clinician referral packet **only if** risk is High
+- A timestamped audit log of every agent invocation
+
+All wrapped in an animated, network-graph **live pipeline overlay** that shows each agent activating one by one with glowing data-flow dots and a real-time elapsed timer.
 
 ---
 
-## 3. System architecture
+## 🖼️ Sample cases
 
-The system follows a **hierarchical multi-agent** pattern. The Orchestrator is
-the only agent that knows the full pipeline; every other agent has a narrow,
-typed contract.
+The app ships with 4 deterministic demo cases. Click one and the full pipeline runs without an API call.
+
+| Case 1 — Normal | Case 2 — Persistent Ulcer | Case 3 — White Patch | Case 4 — Mixed Patch |
+|:---:|:---:|:---:|:---:|
+| ![Case 1](public/samples/case1.svg) | ![Case 2](public/samples/case2.svg) | ![Case 3](public/samples/case3.svg) | ![Case 4](public/samples/case4.svg) |
+| 🟢 Low risk | 🟡 Medium risk | 🔴 High risk | 🔴 High risk |
+
+---
+
+## 🧠 System architecture
+
+A **hierarchical multi-agent** design. The Orchestrator is the only agent that knows the whole pipeline; every other agent has a narrow, typed contract.
 
 ```
        ┌─────────────────────────────────────────────────────────┐
@@ -66,170 +72,114 @@ typed contract.
                                        └─────────────────────────────────────┘
 ```
 
-The Vision Screening Agent calls **one of four pluggable providers**:
+### Agent responsibilities
 
-| Provider | When it's used | Module |
-|----------|----------------|--------|
-| `mock`   | Default. Works offline, no key needed. | [lib/visionProviders/mockVisionProvider.ts](lib/visionProviders/mockVisionProvider.ts) |
-| `gemini` | If `GEMINI_API_KEY` is set | [lib/visionProviders/geminiVisionProvider.ts](lib/visionProviders/geminiVisionProvider.ts) |
-| `claude` | If `ANTHROPIC_API_KEY` is set | [lib/visionProviders/claudeVisionProvider.ts](lib/visionProviders/claudeVisionProvider.ts) |
-| `local`  | If `LOCAL_MODEL_ENDPOINT` is set (future custom-trained model) | [lib/visionProviders/localModelProvider.ts](lib/visionProviders/localModelProvider.ts) |
-
-**Automatic fallback:** if the requested provider is missing credentials or
-fails at runtime, the agent transparently falls back to mock and records the
-reason in the audit log — the app **never crashes**.
+| # | Agent | Responsibility |
+|---|-------|---------------|
+| 1 | **🧠 Orchestrator** | Owns the workflow, creates session id, calls every other agent, writes audit log |
+| 2 | **🪥 Toothbrush IoT** | Simulates brushing duration, pressure, motion blur, image quality, coverage, session validity, rescan recommendation |
+| 3 | **👁️ Vision Screening** | Calls one of four pluggable vision providers; falls back to mock automatically on failure |
+| 4 | **📊 Cancer Risk Scoring** | Combines vision + questionnaire + telemetry quality into a 0–100 score with transparent driver list |
+| 5 | **💬 Patient Communication** | Translates the technical result into plain-language patient advice — never says "confirmed cancer" |
+| 6 | **🩺 Clinician Referral** | Builds a structured referral packet for a dentist or oral medicine specialist (High-risk only) |
 
 ---
 
-## 4. Agent responsibilities
+## 🔌 Vision providers (pluggable)
 
-| Agent | Responsibility | Source |
-|-------|---------------|--------|
-| **Orchestrator** | Owns the workflow, creates the session id, calls every other agent in order, builds the audit log. | [lib/agents/orchestratorAgent.ts](lib/agents/orchestratorAgent.ts) |
-| **Toothbrush IoT** | Simulates smart-toothbrush telemetry: brushing duration, pressure, motion blur, image quality, coverage, session validity, rescan recommendation. | [lib/agents/toothbrushIoTAgent.ts](lib/agents/toothbrushIoTAgent.ts) |
-| **Vision Screening** | Calls one of four pluggable vision providers and returns a structured `VisionResult`. Falls back to mock on failure. | [lib/agents/visionScreeningAgent.ts](lib/agents/visionScreeningAgent.ts) |
-| **Cancer Risk Scoring** | Combines the vision finding, the questionnaire, and the toothbrush quality into a 0–100 score with a Low/Medium/High band and a transparent driver list. | [lib/agents/cancerRiskScoringAgent.ts](lib/agents/cancerRiskScoringAgent.ts) |
-| **Patient Communication** | Translates the technical result into a calm, plain-language patient report — never says "confirmed cancer". | [lib/agents/patientCommunicationAgent.ts](lib/agents/patientCommunicationAgent.ts) |
-| **Clinician Referral** | Builds a structured referral packet for a dentist / oral medicine specialist. Generated **only** when risk is High. | [lib/agents/clinicianReferralAgent.ts](lib/agents/clinicianReferralAgent.ts) |
+Pick at run-time in the UI. If credentials are missing or the call fails, the app **falls back to mock automatically** and records the reason in the audit log — it never crashes.
 
----
-
-## 5. Vision provider modes
-
-| Mode | Cost | Internet | Best for |
-|------|------|----------|----------|
-| `mock`   | Free | ❌ | IDP demo, fastest, deterministic per upload |
-| `gemini` | Free tier on Google AI Studio | ✅ | Real Vision API showcase |
+| Provider | Cost | Internet | Best for |
+|----------|------|----------|----------|
+| `mock` | Free | ❌ | IDP demo — fastest, deterministic per upload |
+| `gemini` | Free tier on AI Studio | ✅ | Real Vision API showcase |
 | `claude` | Paid (Anthropic) | ✅ | Higher-quality reasoning |
-| `local`  | Free (your own GPU) | ❌ | Final phase — custom-trained model |
-
-The user picks the provider in the UI at run-time. The default fallback comes
-from `VISION_PROVIDER` in `.env.local`.
+| `local` | Free (your own GPU) | ❌ | Final phase — custom-trained model |
 
 ---
 
-## 6. Run the app
+## 🚀 Quick start
 
-### 6.1 Prerequisites
+### Prerequisites
+- **Node.js 18+** (this project was scaffolded on Node 24)
+- **npm** (ships with Node)
 
-- **Node.js 18+** (this project was scaffolded on Node 24).
-- **npm** (ships with Node).
-- A modern browser.
-
-### 6.2 Install
+### 1. Clone & install
 
 ```bash
+git clone https://github.com/tky0527/um-idp-oral-cancer-agentic-ai.git
+cd um-idp-oral-cancer-agentic-ai
 npm install
 ```
 
-### 6.3 Mock mode (no key, works offline)
+### 2. Run in mock mode (no key needed)
 
 ```bash
 npm run dev
 ```
 
-Open <http://localhost:3000>, pick a sample case, click **Run Agentic AI Screening**.
+Open <http://localhost:3000> → pick a sample case → click **▶ Run Agentic AI Screening**. Watch the animated pipeline overlay.
 
-### 6.4 Gemini Vision mode
+### 3. Run with Gemini Vision
 
-1. Get a free key at <https://aistudio.google.com/apikey>.
-2. In `.env.local`:
+1. Get a free key at <https://aistudio.google.com/apikey>
+2. Copy `.env.example` → `.env.local`:
    ```env
    GEMINI_API_KEY=YOUR_KEY_HERE
    GEMINI_MODEL=gemini-2.5-flash
    ```
-3. Restart `npm run dev`.
-4. In the UI, pick **Gemini Vision** under "Run agentic AI screening", then upload an image.
+3. `npm run dev`, then in the UI pick **Gemini Vision** under Step 3 and **upload a real photo** (sample cases use a fixed preset by design — only uploads hit the live API).
 
-> Sample cases use a pre-defined finding (no live API call) so the pipeline
-> stays deterministic in demos. **Uploaded images** are the ones sent to Gemini.
+### 4. Run with Claude Vision
 
-### 6.5 Claude Vision mode
-
-1. Get a key at <https://console.anthropic.com>.
+1. Get a key at <https://console.anthropic.com>
 2. In `.env.local`:
    ```env
    ANTHROPIC_API_KEY=YOUR_KEY_HERE
    CLAUDE_MODEL=claude-sonnet-4-5
    ```
-3. Restart `npm run dev` and pick **Claude Vision** in the UI.
-
-### 6.6 Build for production
-
-```bash
-npm run build
-npm run start
-```
-
-### 6.7 Type-check
-
-```bash
-npm run typecheck
-```
+3. `npm run dev`, pick **Claude Vision** in the UI.
 
 ---
 
-## 7. Optional: deploy on Vercel
+## 🎬 The animated agent flow
 
-The app is Vercel-ready (no server-state, no DB).
+When you click **Run Agentic AI Screening**, a full-screen modal opens showing:
 
-1. Push this repo to GitHub.
-2. On <https://vercel.com>, click **Add New → Project** and import the repo.
-3. Set environment variables in **Settings → Environment Variables**:
-   - `VISION_PROVIDER` (e.g. `mock`, `gemini`, or `claude`)
-   - `GEMINI_API_KEY` (if using Gemini)
-   - `ANTHROPIC_API_KEY` (if using Claude)
-4. Deploy.
+- The **Orchestrator hub** at the centre with a pulsing glow and dashed spinning ring
+- **5 sub-agents** in a pentagon around it
+- **Glowing dots** travelling along each spoke when that agent activates (data flow visualisation)
+- **Typewriter previews** of each agent's actual output
+- **Live elapsed timer** per agent with sub-second precision
+- **Skip animation →** button (or press `ESC`)
 
-You can also leave Vercel out and just use the GitHub repo — the project runs
-locally with `npm run dev`.
+The total animation is paced over ~7 seconds while the API call runs in parallel. When both finish, the modal closes and the full results render below.
 
 ---
 
-## 8. Dataset note
+## 🛡️ Why this is *screening support*, not a diagnosis
 
-**No real patient data is shipped with this repository.** The 4 sample cases are
-illustrative SVGs with hand-coded findings, designed for the IDP demo. The real
-dataset for the future custom model **must not** be committed to GitHub — see
-[training/dataset_structure.md](training/dataset_structure.md). The `.gitignore`
-already excludes `data/`, `models/`, and common model checkpoint formats.
+The system is intentionally cautious:
 
----
-
-## 9. Future custom model training
-
-The vision step is designed to be swapped for a custom-trained classifier in
-the next phase of the project:
-
-- Dataset layout: [training/dataset_structure.md](training/dataset_structure.md)
-- Training script skeleton: [training/future_train_model.py](training/future_train_model.py)
-- FastAPI serving skeleton: [training/future_fastapi_model_server.py](training/future_fastapi_model_server.py)
-- Roadmap: [training/README.md](training/README.md)
-
-To switch the live app to the custom model:
-
-```env
-VISION_PROVIDER=local
-LOCAL_MODEL_ENDPOINT=http://localhost:8000/predict
-```
-
-The Vision Screening Agent will route every screening through the FastAPI
-endpoint without any other code change.
+- The Vision agent is prompted to **never claim certainty**
+- Poor image quality **caps the risk score at 55** — no "High" verdict from a blurry frame
+- Every result is wrapped with the **mandatory medical disclaimer**
+- The Patient Communication agent uses calm language and **never says "confirmed cancer"**
+- All four sample-case images are SVG illustrations, not real patient data
 
 ---
 
-## 10. Folder structure
+## 📁 Folder structure
 
 ```
 .
 ├── app/
-│   ├── api/
-│   │   └── screening/
-│   │       └── route.ts          # POST endpoint that drives the pipeline
+│   ├── api/screening/route.ts    # POST endpoint that drives the pipeline
 │   ├── globals.css
 │   ├── layout.tsx
 │   └── page.tsx                  # Main dashboard UI
-├── components/                   # 14 React components
+├── components/                   # 15 React components
+│   ├── AgentFlowOverlay.tsx      # The animated network-graph overlay
 │   ├── AgentPipeline.tsx
 │   ├── ArchitectureExplainer.tsx
 │   ├── AuditLogPanel.tsx
@@ -257,15 +207,13 @@ endpoint without any other code change.
 │   │   ├── geminiVisionProvider.ts
 │   │   ├── claudeVisionProvider.ts
 │   │   └── localModelProvider.ts
-│   ├── data/
-│   │   └── sampleCases.ts        # 4 built-in demo cases
-│   ├── types/
-│   │   └── screening.ts          # Shared TypeScript contracts
+│   ├── data/sampleCases.ts       # 4 built-in demo cases
+│   ├── types/screening.ts        # Shared TypeScript contracts
 │   └── utils/
-│       └── riskUtils.ts
-├── public/
-│   └── samples/                  # 4 SVG illustrations
-├── training/                     # Planning for future custom model
+│       ├── riskUtils.ts
+│       └── loadEnvLocal.ts       # Force-loads .env.local over OS env vars
+├── public/samples/               # 4 SVG illustrations
+├── training/                     # Planning for the future custom model
 │   ├── README.md
 │   ├── dataset_structure.md
 │   ├── future_train_model.py
@@ -281,18 +229,57 @@ endpoint without any other code change.
 
 ---
 
-## 11. Commands
+## 🔮 Future: replacing the Vision API with a custom-trained model
+
+The Vision Screening Agent is designed for one-config-line provider swaps. The next phase of the project is to:
+
+1. Collect a labelled oral-cavity dataset (clinical partnership)
+2. Transfer-learn a small CNN backbone (MobileNetV3-Small or EfficientNet-B0)
+3. Calibrate probabilities (temperature scaling)
+4. Export ONNX and serve with FastAPI
+5. Set `VISION_PROVIDER=local` and `LOCAL_MODEL_ENDPOINT=http://localhost:8000/predict`
+
+Detailed plan and skeletons in [`training/`](training/):
+- [`training/README.md`](training/README.md) — full roadmap
+- [`training/dataset_structure.md`](training/dataset_structure.md) — expected layout
+- [`training/future_train_model.py`](training/future_train_model.py) — training skeleton
+- [`training/future_fastapi_model_server.py`](training/future_fastapi_model_server.py) — serving skeleton
+
+The dataset itself is **never committed to GitHub** — `.gitignore` excludes `data/`, `models/`, `*.pth`, `*.pt`, `*.onnx`.
+
+---
+
+## 🛠️ Commands
 
 ```bash
 npm install         # one-time
-npm run dev         # local development server
+npm run dev         # local development server (http://localhost:3000)
 npm run build       # production build
 npm run start       # serve the production build
-npm run typecheck   # TypeScript-only check
+npm run typecheck   # TypeScript-only check (no emit)
 ```
 
 ---
 
-## 12. License & credits
+## 🧬 Tech stack
 
-University IDP prototype. Educational use only — not a medical device.
+- **Next.js 16** (App Router, Turbopack)
+- **React 19**
+- **TypeScript 5** (strict)
+- **Tailwind CSS 3** (light-purple theme)
+- **Zero database** · **Zero auth** · **Zero patient data**
+- Pure server-side agent pipeline behind a single Next.js API route
+
+---
+
+## 👤 Author
+
+**tky0527** — University Integrated Design Project (Part 2)
+
+---
+
+## 📜 License & disclaimer
+
+University IDP prototype. **Educational use only — not a medical device.**
+
+This software has not been clinically validated, does not store patient data, and must never be used to make health decisions. The Vision Screening Agent is explicitly prompted to never claim certainty, the Risk Scoring Agent caps the score at 55 when image quality is poor, the Patient Communication Agent never says "confirmed cancer", and every result is wrapped with the mandatory disclaimer above.
