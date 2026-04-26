@@ -107,7 +107,7 @@ Pick at run-time in the UI. If credentials are missing or the call fails, the ap
 ### 1. Clone & install
 
 ```bash
-git clone https://github.com/tky0527/um-idp-oral-cancer-agentic-ai.git
+git clone https://github.com/TKY0527/um-idp-oral-cancer-agentic-ai.git
 cd um-idp-oral-cancer-agentic-ai
 npm install
 ```
@@ -274,7 +274,7 @@ npm run typecheck   # TypeScript-only check (no emit)
 
 ## 👤 Author
 
-**tky0527** — University Integrated Design Project (Part 2)
+**TKY0527** — University Integrated Design Project (Part 2)
 
 ---
 
