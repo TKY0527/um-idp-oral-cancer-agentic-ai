@@ -5,6 +5,12 @@ import type {
 } from "@/lib/types/screening";
 import { runOrchestratorAgent } from "@/lib/agents/orchestratorAgent";
 import { getSampleCase } from "@/lib/data/sampleCases";
+import { loadEnvLocal } from "@/lib/utils/loadEnvLocal";
+
+// Force-load .env.local on first import so OS-level env vars (e.g. an expired
+// GEMINI_API_KEY left over in the user's Windows environment) cannot override
+// the values intended for this project.
+loadEnvLocal();
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
