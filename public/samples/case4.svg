@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="Mixed white and red patch on floor of mouth">
+  <defs>
+    <linearGradient id="bg4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f3edff"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+    <radialGradient id="lipGrad4" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fdb4cb"/>
+      <stop offset="100%" stop-color="#e08aab"/>
+    </radialGradient>
+    <radialGradient id="redPart" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff7878"/>
+      <stop offset="100%" stop-color="#b03333"/>
+    </radialGradient>
+    <radialGradient id="whitePart" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e3dabe"/>
+    </radialGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg4)"/>
+  <ellipse cx="200" cy="160" rx="140" ry="80" fill="url(#lipGrad4)"/>
+  <ellipse cx="200" cy="170" rx="115" ry="55" fill="#7a1e3a"/>
+  <!-- Tongue -->
+  <ellipse cx="200" cy="180" rx="80" ry="28" fill="#e07692"/>
+  <!-- Floor of mouth area (under tongue) -->
+  <path d="M 110 215 Q 200 245 290 215 Q 290 230 200 240 Q 110 230 110 215 Z" fill="#a83f5a" opacity="0.6"/>
+  <!-- Mixed lesion -->
+  <g>
+    <ellipse cx="180" cy="222" rx="22" ry="10" fill="url(#redPart)"/>
+    <ellipse cx="210" cy="225" rx="18" ry="9" fill="url(#whitePart)"/>
+    <ellipse cx="195" cy="220" rx="10" ry="6" fill="url(#redPart)" opacity="0.7"/>
+  </g>
+  <!-- Pointer -->
+  <line x1="320" y1="260" x2="222" y2="228" stroke="#5d35a3" stroke-width="1.5" stroke-dasharray="3 3"/>
+  <circle cx="320" cy="260" r="3" fill="#5d35a3"/>
+  <text x="324" y="265" font-family="system-ui, sans-serif" font-size="11" fill="#5d35a3" font-weight="600">mixed patch</text>
+  <!-- Teeth top -->
+  <g fill="#fffdf5">
+    <rect x="138" y="123" width="14" height="24" rx="3"/>
+    <rect x="156" y="121" width="14" height="26" rx="3"/>
+    <rect x="174" y="120" width="14" height="27" rx="3"/>
+    <rect x="192" y="120" width="14" height="27" rx="3"/>
+    <rect x="210" y="120" width="14" height="27" rx="3"/>
+    <rect x="228" y="121" width="14" height="26" rx="3"/>
+    <rect x="246" y="123" width="14" height="24" rx="3"/>
+  </g>
+  <g font-family="system-ui, sans-serif" font-size="14" fill="#4a2d82">
+    <rect x="14" y="14" width="172" height="28" rx="14" fill="#ef4444"/>
+    <text x="100" y="33" text-anchor="middle" fill="white" font-weight="600">Case 4 · Mixed patch (High)</text>
+  </g>
+  <text x="200" y="285" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" fill="#5d35a3">Floor of mouth · mixed white/red patch · 4 weeks</text>
+</svg>
