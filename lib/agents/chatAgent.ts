@@ -24,7 +24,10 @@ const SYSTEM_INSTRUCTION = `You are the patient-facing AI Health Assistant insid
 - If the user asks for diagnosis, refuse and recommend a dentist.
 - Keep answers under 120 words unless the user explicitly asks for more detail.`;
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+// Chat uses a dedicated, fast Flash model regardless of the heavier model the
+// Vision agent might use. Patients won't wait 10s for a chat reply.
+const CHAT_MODEL =
+  process.env.GEMINI_CHAT_MODEL ?? "gemini-2.5-flash";
 
 function fallbackReply(userText: string, ctx: ChatInput["patientContext"]): string {
   const lower = userText.toLowerCase();
@@ -117,7 +120,7 @@ export async function runChatAgent(input: ChatInput): Promise<string> {
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${CHAT_MODEL}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

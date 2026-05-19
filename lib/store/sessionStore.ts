@@ -15,6 +15,10 @@ import type { ScreeningSession, ClinicianReview } from "@/lib/types/screening";
  */
 
 const STORAGE_KEY = "oralscan_sessions_v2";
+/** Hard cap on persisted size — roughly 60 % of typical 5 MB quota. */
+const MAX_BYTES = 3 * 1024 * 1024;
+/** Max age (ms) for keeping the full data URL preview — older sessions drop the image. */
+const PREVIEW_RETAIN_MS = 7 * 24 * 60 * 60 * 1000;
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -35,21 +39,66 @@ function safeRead(): ScreeningSession[] {
   }
 }
 
+/**
+ * Image-aware trimming strategy:
+ *  1. Drop preview images on sessions older than PREVIEW_RETAIN_MS.
+ *  2. Drop preview images from oldest sessions first.
+ *  3. If still too big, drop the oldest sessions entirely.
+ */
+function trimToFit(sessions: ScreeningSession[]): ScreeningSession[] {
+  const now = Date.now();
+  let working = sessions.map((s) => {
+    if (
+      s.imageMeta.previewDataUrl &&
+      now - new Date(s.finishedAt).getTime() > PREVIEW_RETAIN_MS
+    ) {
+      return { ...s, imageMeta: { ...s.imageMeta, previewDataUrl: undefined } };
+    }
+    return s;
+  });
+
+  // newest first for prioritization
+  working = [...working].sort(
+    (a, b) =>
+      new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
+  );
+
+  // Step 2: progressively strip previews from oldest until under cap.
+  let serialized = JSON.stringify(working);
+  for (let i = working.length - 1; i >= 0 && serialized.length > MAX_BYTES; i--) {
+    if (working[i].imageMeta.previewDataUrl) {
+      working[i] = {
+        ...working[i],
+        imageMeta: { ...working[i].imageMeta, previewDataUrl: undefined },
+      };
+      serialized = JSON.stringify(working);
+    }
+  }
+
+  // Step 3: drop oldest sessions entirely if still too big.
+  while (working.length > 0 && serialized.length > MAX_BYTES) {
+    working.pop();
+    serialized = JSON.stringify(working);
+  }
+
+  return working;
+}
+
 function safeWrite(sessions: ScreeningSession[]): void {
   if (typeof window === "undefined") return;
+  const trimmed = trimToFit(sessions);
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
   } catch {
-    // Quota exceeded — drop oldest images to make room.
+    // Last-resort: drop ALL previews and try again.
     try {
-      const trimmed = sessions.map((s) =>
-        s.imageMeta.previewDataUrl
-          ? { ...s, imageMeta: { ...s.imageMeta, previewDataUrl: undefined } }
-          : s
-      );
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+      const noPreviews = trimmed.map((s) => ({
+        ...s,
+        imageMeta: { ...s.imageMeta, previewDataUrl: undefined },
+      }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(noPreviews));
     } catch {
-      // give up
+      // give up — but at least notify subscribers so UI updates.
     }
   }
   notify();

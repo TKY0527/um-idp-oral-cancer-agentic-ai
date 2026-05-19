@@ -40,29 +40,38 @@ type Phase =
   | "boot"
   | "iot"
   | "vision"
+  | "consensus"
   | "scoring"
+  | "retrieval"
   | "patient"
   | "referral"
+  | "triage"
   | "done";
 
-// Medium-speed choreography (~7s total).
+// Medium-speed choreography (~9s total now that 3 meta-agents are shown).
 const PHASE_MS: Record<Phase, number> = {
-  boot:     600,
-  iot:     1100,
-  vision:  1600,
-  scoring: 1100,
-  patient: 1100,
-  referral:1100,
-  done:     500,
+  boot:       500,
+  iot:       1000,
+  vision:    1400,
+  consensus:  700,
+  scoring:    900,
+  retrieval:  800,
+  patient:    900,
+  referral:   900,
+  triage:     800,
+  done:       400,
 };
 
 const PHASE_ORDER: Phase[] = [
   "boot",
   "iot",
   "vision",
+  "consensus",
   "scoring",
+  "retrieval",
   "patient",
   "referral",
+  "triage",
   "done",
 ];
 
@@ -73,6 +82,15 @@ const PHASE_TO_AGENT: Partial<Record<Phase, AgentId>> = {
   patient: "patient",
   referral: "referral",
 };
+
+// Meta-agents that appear in the strip below the hub rather than as spokes.
+type MetaAgentId = "consensus" | "retrieval" | "triage";
+
+const META_AGENTS: { id: MetaAgentId; label: string; icon: string; phase: Phase }[] = [
+  { id: "consensus", label: "Consensus",  icon: "🤝", phase: "consensus" },
+  { id: "retrieval", label: "RAG Retrieval", icon: "📚", phase: "retrieval" },
+  { id: "triage",    label: "Triage",     icon: "🚦", phase: "triage" },
+];
 
 const RADIUS = 230; // distance from center to each spoke
 const CONTAINER = 620; // square container size in px (also used as viewBox for SVG)
@@ -376,9 +394,46 @@ export function AgentFlowOverlay({ open, session, onSkip, onComplete }: Props) {
         })}
       </div>
 
+      {/* Meta-agents strip — Consensus / RAG / Triage */}
+      <div className="absolute bottom-20 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-3 py-2 backdrop-blur">
+        <span className="px-1 text-[10px] font-bold uppercase tracking-widest text-white/70">
+          Meta-agents
+        </span>
+        {META_AGENTS.map((m) => {
+          const phaseIdx = PHASE_ORDER.indexOf(m.phase);
+          const meta =
+            currentIdx > phaseIdx
+              ? "done"
+              : currentIdx === phaseIdx
+                ? "active"
+                : "pending";
+          return (
+            <span
+              key={m.id}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                meta === "active"
+                  ? "bg-white text-lavender-900 shadow-[0_0_18px_rgba(189,150,255,0.85)]"
+                  : meta === "done"
+                    ? "bg-lavender-300/60 text-lavender-950"
+                    : "bg-white/10 text-white/60"
+              }`}
+            >
+              <span aria-hidden>{m.icon}</span>
+              <span>{m.label}</span>
+              {meta === "active" && (
+                <span className="ml-1 inline-block h-1.5 w-1.5 animate-ping rounded-full bg-lavender-600" />
+              )}
+              {meta === "done" && (
+                <span className="ml-1 text-emerald-700">✓</span>
+              )}
+            </span>
+          );
+        })}
+      </div>
+
       {/* Bottom legend */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs text-white/85 backdrop-blur">
-        Hierarchical multi-agent system · Orchestrator dispatches 5 sub-agents · ESC to skip
+        Hierarchical multi-agent system · Orchestrator + 5 sub-agents + 3 meta-agents · ESC to skip
       </div>
 
       <style jsx global>{`
