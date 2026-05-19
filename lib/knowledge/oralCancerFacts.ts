@@ -21,52 +21,74 @@ export const ORAL_CANCER_KB: KnowledgeEntry[] = [
   {
     id: "kb-leukoplakia",
     title: "Leukoplakia (white patch)",
-    source: "WHO oral health overview (educational paraphrase)",
+    source:
+      "Reichart PA, Philipsen HP (2005); Speight PM (2007); van der Waal I (2014) — educational paraphrase",
     tags: ["white_patch_like", "leukoplakia", "lateral tongue", "tobacco"],
     text:
       "A persistent white patch that cannot be wiped off and has no obvious cause is called leukoplakia. " +
-      "It is a potentially malignant disorder. Persistent leukoplakia lasting more than 2 weeks should " +
-      "be reviewed by a dentist, especially in tobacco or betel quid users.",
+      "It is a potentially malignant disorder; pooled malignant transformation rate across studies is " +
+      "roughly 3–17 %, with higher rates in lesions with dysplasia and in non-smokers. Persistent " +
+      "leukoplakia lasting more than 2 weeks should be reviewed by a dentist, especially in tobacco " +
+      "or betel quid users.",
   },
   {
     id: "kb-erythroplakia",
-    title: "Erythroplakia (red patch)",
-    source: "Cancer Council oral cancer guide (educational paraphrase)",
+    title: "Erythroplakia and mixed red-white lesions",
+    source: "van der Waal I (2014) Oral Oncology — educational paraphrase",
     tags: ["red_patch_like", "mixed_white_red_patch_like", "erythroplakia"],
     text:
-      "A persistent red patch — erythroplakia — has a higher malignant transformation rate than white " +
-      "patches. Mixed red-and-white lesions are particularly concerning and warrant prompt clinical " +
-      "evaluation, often including biopsy.",
+      "Erythroplakia — a persistent red patch — has a markedly higher malignant transformation rate " +
+      "than leukoplakia (approximately 14–50 % in reported series). Mixed red-and-white lesions " +
+      "(erythroleukoplakia) are even more concerning: most biopsies show high-grade dysplasia or early " +
+      "invasive carcinoma. These lesions warrant prompt clinical evaluation, often including biopsy.",
   },
   {
     id: "kb-ulcer",
-    title: "Persistent oral ulcer",
-    source: "NHS oral cancer overview (educational paraphrase)",
+    title: "Non-healing oral ulcer (>2 weeks)",
+    source:
+      "NCCN Head and Neck Cancers Guidelines; NHS oral cancer overview — educational paraphrase",
     tags: ["ulcer_like", "ulcer", "inner cheek", "pain"],
     text:
-      "A mouth ulcer that does not heal within 3 weeks should be examined. While most ulcers are benign " +
+      "A mouth ulcer that has not healed within 2 weeks is the conventional referral threshold; an " +
+      "ulcer persisting beyond 4 weeks is a stronger clinical red flag. While most ulcers are benign " +
       "(e.g. aphthous), persistent painful ulcers — especially with bleeding or in tobacco / alcohol / " +
-      "betel quid users — can be early oral cancer.",
+      "betel quid users — can represent early oral squamous cell carcinoma.",
   },
   {
     id: "kb-betel-quid",
-    title: "Betel quid / areca nut",
-    source: "IARC monograph 85 (educational paraphrase)",
+    title: "Betel quid / areca nut chewing",
+    source:
+      "IARC Monograph Vol 85 (2004) — educational paraphrase",
     tags: ["betelQuid", "areca", "risk factor"],
     text:
-      "Betel quid chewing (with or without tobacco) is classified as carcinogenic. It is a major risk " +
-      "factor for oral cancer in South and Southeast Asia. Combined use of betel quid, tobacco and " +
-      "alcohol multiplies risk substantially.",
+      "Betel quid chewing — with or without tobacco — is classified by IARC as a Group 1 (definite) " +
+      "human carcinogen. It is the largest modifiable risk factor for oral cancer in South and " +
+      "South-East Asia, with pooled odds ratios in the range of 7–20× over non-chewers. Combined use " +
+      "with tobacco and alcohol amplifies risk substantially through supra-additive interaction.",
   },
   {
     id: "kb-tobacco-alcohol",
-    title: "Tobacco and alcohol synergy",
-    source: "WHO cancer fact sheet (educational paraphrase)",
+    title: "Tobacco × alcohol synergy",
+    source:
+      "IARC Monograph Vol 100E (2012); INHANCE pooled analysis (Hashibe 2007, 2009) — educational paraphrase",
     tags: ["tobacco", "alcohol", "risk factor"],
     text:
-      "Tobacco use and heavy alcohol consumption are the two best-established risk factors for oral " +
-      "cancer. Their combined effect is more than additive: people who use both have markedly higher " +
-      "risk than those who use either alone.",
+      "Tobacco use and heavy alcohol consumption are independent IARC Group 1 carcinogens for the oral " +
+      "cavity. Individually, the odds ratio is roughly 3–5× for tobacco and 2–3× for alcohol. " +
+      "Critically, their combined effect is supra-additive: pooled analyses by the INHANCE consortium " +
+      "report combined odds ratios up to ≈ 35× in heavy concurrent users — far more than the sum of " +
+      "the individual risks.",
+  },
+  {
+    id: "kb-age",
+    title: "Age and oral cancer incidence",
+    source:
+      "Warnakulasuriya S (2009) Oral Oncology — educational paraphrase",
+    tags: ["age", "risk factor"],
+    text:
+      "Incidence rises steeply after age 40 and roughly doubles each decade through the 60s. Most " +
+      "diagnoses occur between age 50 and 70, although betel quid use in Asia and HPV-associated " +
+      "oropharyngeal cancer in younger adults are shifting the demographic.",
   },
   {
     id: "kb-lateral-tongue",

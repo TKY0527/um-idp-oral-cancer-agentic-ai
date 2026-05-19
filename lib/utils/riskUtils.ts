@@ -7,13 +7,35 @@ import type {
 export const SCREENING_DISCLAIMER =
   "This prototype is not a medical diagnosis. It is an educational oral cancer screening demonstration. Please consult a qualified dentist or doctor for proper diagnosis.";
 
+/**
+ * Visual-finding weights — calibrated from published malignant transformation
+ * rates of oral potentially malignant disorders (OPMDs):
+ *
+ *   • normal          → 0    (no lesion observed)
+ *   • unclear         → 5    (mainly an image-quality flag, not a real risk
+ *                              signal — keep low so blurry frames don't drive
+ *                              risk up)
+ *   • ulcer_like      → 12   (most ulcers are benign; concern only when
+ *                              persistent — duration is weighted separately
+ *                              per NCCN H&N referral threshold of 2 weeks)
+ *   • white_patch_like → 20  (leukoplakia: malignant transformation
+ *                              ≈ 3–17 % depending on dysplasia grade.
+ *                              Reichart & Philipsen 2005; Speight 2007)
+ *   • red_patch_like   → 32  (erythroplakia: transformation ≈ 14–50 %,
+ *                              substantially higher than leukoplakia.
+ *                              van der Waal 2014)
+ *   • mixed_white_red_patch_like → 38
+ *                              (erythroleukoplakia: highest transformation
+ *                              rate among OPMDs; high-grade dysplasia in
+ *                              majority of biopsies. van der Waal 2014)
+ */
 export const VISUAL_FINDING_SCORES: Record<VisualFinding, number> = {
   normal: 0,
-  unclear: 8,
-  ulcer_like: 18,
-  white_patch_like: 25,
-  red_patch_like: 28,
-  mixed_white_red_patch_like: 35,
+  unclear: 5,
+  ulcer_like: 12,
+  white_patch_like: 20,
+  red_patch_like: 32,
+  mixed_white_red_patch_like: 38,
 };
 
 export const VISUAL_FINDING_LABEL: Record<VisualFinding, string> = {

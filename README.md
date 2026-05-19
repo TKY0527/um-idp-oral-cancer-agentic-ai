@@ -108,6 +108,45 @@ A **hierarchical multi-agent** design. The Orchestrator is the only agent that k
 
 ---
 
+## 📚 Risk-scoring weights — literature sources
+
+The 0–100 oral cancer risk score is **not arbitrary**. Every weight in
+[`lib/agents/cancerRiskScoringAgent.ts`](lib/agents/cancerRiskScoringAgent.ts)
+is calibrated from established oral-cancer epidemiology, with the source cited
+inline in code comments and in the patient/clinician UI.
+
+| Factor | Prototype weight | Calibrated against |
+|---|---:|---|
+| Betel quid / areca nut | **+25** | IARC Monograph Vol 85 (2004) — Group 1 carcinogen, pooled OR ≈ 7–20× |
+| Tobacco use | **+18** | IARC Monograph Vol 100E (2012) — OR ≈ 3–5× |
+| Alcohol use | **+12** | IARC Monograph Vol 100E (2012) — OR ≈ 2–3× |
+| **Tobacco × alcohol synergy** | **+8** | INHANCE consortium (Hashibe 2007, 2009) — supra-additive, combined OR up to ≈ 35× |
+| **Tobacco × betel synergy** | **+10** | IARC Monograph Vol 85 (2004) |
+| Family history of oral cancer | +10 | Petti S (2003) pooled analysis — OR ≈ 2× |
+| Lesion present 2–4 weeks | **+12** | NCCN Head & Neck Guidelines — referral threshold |
+| Lesion present > 4 weeks | **+18** | NCCN — stronger clinical red flag |
+| Bleeding reported | +12 | NCCN — clinical red flag |
+| Ulcer present | +8 | duration already weighted; avoid double-counting |
+| Pain reported | +5 | variable, late sign |
+| Age ≥ 45 | +5 | Warnakulasuriya 2009 — risk doubles per decade |
+| Age ≥ 55 | +10 | Warnakulasuriya 2009 |
+| Age ≥ 65 | +14 | Warnakulasuriya 2009 |
+| Visual: leukoplakia (white) | +20 | Transformation ≈ 3–17 % (Reichart 2005; Speight 2007) |
+| Visual: erythroplakia (red) | +32 | Transformation ≈ 14–50 % (van der Waal 2014) |
+| Visual: mixed red-white | +38 | Highest transformation rate among OPMDs (van der Waal 2014) |
+| Vision probability ≥ 0.70 | +25 | Model-side contribution |
+| Vision probability 0.50–0.69 | +15 | Model-side contribution |
+| Vision probability 0.30–0.49 | +8 | Model-side contribution |
+
+Image-quality safeguard: if the image is **poor**, the final score is capped at 55 — the
+pipeline can never produce a confident "High" verdict from a blurry frame.
+
+Risk bands: **0–29 Low · 30–59 Medium · 60–100 High**.
+
+> ⚠️ **All weights and odds-ratio ranges above are stated for an *educational
+> prototype*. They are not clinical risk equations. The system always returns
+> the mandatory medical disclaimer with every result.**
+
 ## 🚀 Latest-trend tech in this prototype
 
 | Tech | Where it's used |
