@@ -56,10 +56,20 @@ export async function runOrchestratorAgent(
 
   logEvent("Orchestrator", "session_started", `Session id: ${sessionId}`);
   emit({ agent: "Orchestrator", status: "started", detail: sessionId });
+  const imageSizeBytes = input.imageBase64
+    ? Math.floor((input.imageBase64.length * 3) / 4)
+    : 0;
   logEvent(
     "Orchestrator",
     "inputs_received",
-    `Source: ${input.source}${input.sampleId ? ` (${input.sampleId})` : ""}, provider: ${input.preferredProvider}`
+    `Source: ${input.source}${input.sampleId ? ` (${input.sampleId})` : ""}, ` +
+      `provider: ${input.preferredProvider}` +
+      (imageSizeBytes > 0
+        ? `, image: ${(imageSizeBytes / 1024).toFixed(1)} KB`
+        : "") +
+      (input.consensusProvider
+        ? `, consensus: ${input.consensusProvider}`
+        : "")
   );
 
   // 1. Toothbrush IoT Agent

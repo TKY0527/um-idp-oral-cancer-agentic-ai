@@ -123,6 +123,15 @@ export function AgentFlowOverlay({ open, session, onSkip, onComplete }: Props) {
   // Drive the phase machine + master timer when opened.
   useEffect(() => {
     if (!open) return;
+
+    // Respect prefers-reduced-motion (WCAG 2.3.3). For users with vestibular
+    // sensitivities we collapse the choreography to a near-instant transition
+    // — they still see all the agent states, just not the slow build-up.
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const speedScale = reduced ? 0.1 : 1; // 10× faster if reduced motion
+
     setPhase("boot");
     setElapsedMs(0);
     setAgentMs({
@@ -157,7 +166,7 @@ export function AgentFlowOverlay({ open, session, onSkip, onComplete }: Props) {
     let cumulative = 0;
     for (let i = 0; i < PHASE_ORDER.length; i++) {
       const next = PHASE_ORDER[i];
-      cumulative += i === 0 ? 0 : PHASE_MS[PHASE_ORDER[i - 1]];
+      cumulative += i === 0 ? 0 : PHASE_MS[PHASE_ORDER[i - 1]] * speedScale;
       const t = setTimeout(() => {
         setPhase(next);
         const agent = PHASE_TO_AGENT[next];
@@ -170,7 +179,7 @@ export function AgentFlowOverlay({ open, session, onSkip, onComplete }: Props) {
 
     // After the final phase, finish.
     const total =
-      PHASE_ORDER.reduce((sum, p) => sum + PHASE_MS[p], 0);
+      PHASE_ORDER.reduce((sum, p) => sum + PHASE_MS[p], 0) * speedScale;
     const closeT = setTimeout(() => {
       onCompleteRef.current();
     }, total);

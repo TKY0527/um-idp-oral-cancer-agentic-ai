@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ToastViewport } from "@/components/Toast";
 
 export const metadata: Metadata = {
   title: "Oral Cancer Agentic AI Screening Prototype",
@@ -16,6 +17,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="font-sans antialiased">
         {children}
+        <ToastViewport />
       </body>
     </html>
   );

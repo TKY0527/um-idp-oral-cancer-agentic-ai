@@ -74,7 +74,18 @@ export function nowISO(): string {
 
 export function newSessionId(): string {
   const ts = Date.now().toString(36);
-  const rand = Math.random().toString(36).slice(2, 8);
+  // Prefer crypto.randomUUID() when available (Node 19+ and modern browsers).
+  // It is collision-resistant even when two tabs / two requests fire in the
+  // same millisecond.
+  let rand: string;
+  if (
+    typeof globalThis !== "undefined" &&
+    typeof (globalThis.crypto as Crypto | undefined)?.randomUUID === "function"
+  ) {
+    rand = globalThis.crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+  } else {
+    rand = Math.random().toString(36).slice(2, 10);
+  }
   return `OCS-${ts}-${rand}`.toUpperCase();
 }
 

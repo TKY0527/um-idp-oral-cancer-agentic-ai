@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SafetyBanner } from "@/components/SafetyBanner";
 import { SampleCaseSelector } from "@/components/SampleCaseSelector";
 import { ImageUpload, type UploadedImage } from "@/components/ImageUpload";
@@ -58,6 +58,10 @@ export default function PatientScreeningPage() {
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [pendingSession, setPendingSession] = useState<ScreeningSession | null>(null);
   const [overlayDone, setOverlayDone] = useState(false);
+  // Abort controller for the in-flight screening request — allows the
+  // overlay's Skip button to actually cancel the network call instead of
+  // letting it finish in the background.
+  const abortRef = useRef<AbortController | null>(null);
 
   function pickSample(id: string | null) {
     setSelectedSampleId(id);
@@ -105,39 +109,56 @@ export default function PatientScreeningPage() {
               consensusProvider: enableConsensus ? consensusProvider : undefined,
             };
 
+      // Wire abort so handleOverlaySkip() can cancel a slow upstream call.
+      abortRef.current = new AbortController();
       const res = await fetch("/api/screening", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: abortRef.current.signal,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? `HTTP ${res.status}`);
       }
-      const data = (await res.json()) as ScreeningSession;
+      const raw = (await res.json()) as ScreeningSession;
 
-      // Attach a preview data URL so the doctor view can show what was screened.
-      if (upload) {
-        data.imageMeta.previewDataUrl = upload.previewUrl;
-      } else if (selectedSampleId) {
-        const sample = getSampleCase(selectedSampleId);
-        if (sample) data.imageMeta.previewDataUrl = sample.thumbnail;
-      }
+      // Defensive clone — never mutate a response object we'll also pass
+      // to the store and React state. Spread is shallow but ScreeningSession
+      // has a nested imageMeta we need to merge cleanly.
+      const previewDataUrl = upload
+        ? upload.previewUrl
+        : selectedSampleId
+          ? getSampleCase(selectedSampleId)?.thumbnail
+          : undefined;
+      const data: ScreeningSession = {
+        ...raw,
+        imageMeta: { ...raw.imageMeta, previewDataUrl },
+      };
 
-      setPendingSession(data);
+      // Save THEN set pending — store goes first so the doctor queue
+      // updates immediately even if the overlay animation is still
+      // playing.
       sessionStore.add(data);
+      setPendingSession(data);
     } catch (err) {
+      // Abort throws here — treat it as a silent user cancel.
+      if ((err as Error)?.name === "AbortError") {
+        setOverlayOpen(false);
+        setRunning(false);
+        return;
+      }
       // Patient-friendly translation — never show raw stack traces or
       // provider error messages to a patient.
-      const raw = err instanceof Error ? err.message : "Unknown error";
+      const msg = err instanceof Error ? err.message : "Unknown error";
       let friendly: string;
-      if (raw.includes("network") || raw.includes("fetch")) {
+      if (msg.includes("network") || msg.includes("fetch")) {
         friendly =
           "We couldn't reach the screening service. Please check your internet connection and try again.";
-      } else if (raw.includes("API key") || raw.includes("INVALID_ARGUMENT")) {
+      } else if (msg.includes("API key") || msg.includes("INVALID_ARGUMENT")) {
         friendly =
           "The AI provider isn't configured properly on this device. The screening can still run in offline mock mode — switch the Vision provider to 'Mock' under Step 3 and try again.";
-      } else if (raw.toLowerCase().includes("image")) {
+      } else if (msg.toLowerCase().includes("image")) {
         friendly =
           "We couldn't process this image. Try a clearer, well-lit photo with your mouth filling most of the frame.";
       } else {
@@ -164,16 +185,22 @@ export default function PatientScreeningPage() {
   }, [overlayDone, pendingSession]);
 
   function handleOverlaySkip() {
-    if (pendingSession) {
+    // If the network call hasn't returned yet, cancel it so we don't pay
+    // for tokens / waste resources after the user has bailed.
+    if (!pendingSession) {
+      abortRef.current?.abort();
+    } else {
       setSession(pendingSession);
       setPendingSession(null);
     }
     setOverlayOpen(false);
     setRunning(false);
     setOverlayDone(false);
-    setTimeout(() => {
-      document.getElementById("results")?.scrollIntoView({ behavior: "smooth" });
-    }, 50);
+    if (pendingSession) {
+      setTimeout(() => {
+        document.getElementById("results")?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
+    }
   }
 
   const inputReady = selectedSampleId !== null || upload !== null;

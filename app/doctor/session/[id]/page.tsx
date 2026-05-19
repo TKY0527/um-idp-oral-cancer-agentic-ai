@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useSession } from "@/lib/store/useSessionStore";
 import { sessionStore } from "@/lib/store/sessionStore";
+import { showToast } from "@/components/Toast";
 import { ToothbrushTelemetryCard } from "@/components/ToothbrushTelemetryCard";
 import { VisionResultCard } from "@/components/VisionResultCard";
 import { RiskScoreCard } from "@/components/RiskScoreCard";
@@ -56,8 +57,8 @@ export default function DoctorSessionDetailPage() {
       notes: notes.trim(),
     };
     sessionStore.setClinicianReview(id, review);
-    alert("Review saved. Returning to queue.");
-    router.push("/doctor");
+    showToast("Review saved. Returning to queue…", "success");
+    setTimeout(() => router.push("/doctor"), 500);
   }
 
   return (
