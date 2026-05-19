@@ -108,6 +108,18 @@ A **hierarchical multi-agent** design. The Orchestrator is the only agent that k
 
 ---
 
+## 📄 Methodology report
+
+A full academic methodology report — explaining every weight, citing the
+exact paper/monograph/section it comes from, contrasting the agentic design
+with a plain-LLM approach, and outlining the **Doctor Agent** roadmap — is
+in:
+
+> **[`docs/METHODOLOGY.md`](docs/METHODOLOGY.md)**
+
+This is the document to read (or hand to the IDP examiner) if you want to
+see the academic justification behind the prototype.
+
 ## 📚 Risk-scoring weights — literature sources
 
 The 0–100 oral cancer risk score is **not arbitrary**. Every weight in
