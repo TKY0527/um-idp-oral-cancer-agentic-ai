@@ -1,364 +1,191 @@
-"use client";
+import Link from "next/link";
+import { SCREENING_DISCLAIMER } from "@/lib/utils/riskUtils";
 
-import { useEffect, useState } from "react";
-import { HeroSection } from "@/components/HeroSection";
-import { SafetyBanner } from "@/components/SafetyBanner";
-import { SampleCaseSelector } from "@/components/SampleCaseSelector";
-import { ImageUpload, type UploadedImage } from "@/components/ImageUpload";
-import { QuestionnaireForm } from "@/components/QuestionnaireForm";
-import { AgentPipeline } from "@/components/AgentPipeline";
-import { ToothbrushTelemetryCard } from "@/components/ToothbrushTelemetryCard";
-import { VisionResultCard } from "@/components/VisionResultCard";
-import { RiskScoreCard } from "@/components/RiskScoreCard";
-import { PatientReportCard } from "@/components/PatientReportCard";
-import { ClinicianReferralCard } from "@/components/ClinicianReferralCard";
-import { AuditLogPanel } from "@/components/AuditLogPanel";
-import { ProviderStatusBadge } from "@/components/ProviderStatusBadge";
-import { ArchitectureExplainer } from "@/components/ArchitectureExplainer";
-import { AgentFlowOverlay } from "@/components/AgentFlowOverlay";
-import { getSampleCase } from "@/lib/data/sampleCases";
-import type {
-  Questionnaire,
-  ScreeningSession,
-  VisionProviderId,
-} from "@/lib/types/screening";
-
-const DEFAULT_QUESTIONNAIRE: Questionnaire = {
-  age: 30,
-  tobacco: false,
-  alcohol: false,
-  betelQuid: false,
-  familyHistory: false,
-  lesionDurationWeeks: 0,
-  pain: false,
-  bleeding: false,
-  ulcer: false,
-};
-
-const PROVIDER_OPTIONS: { id: VisionProviderId; label: string; help: string }[] = [
-  { id: "mock", label: "Mock (offline)", help: "Works without any API key — best for demos." },
-  { id: "gemini", label: "Gemini Vision", help: "Calls Google Gemini if GEMINI_API_KEY is set." },
-  { id: "claude", label: "Claude Vision", help: "Calls Anthropic Claude if ANTHROPIC_API_KEY is set." },
-  { id: "local", label: "Future Local Model", help: "FastAPI endpoint for the custom model (coming later)." },
-];
-
-export default function HomePage() {
-  const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
-  const [upload, setUpload] = useState<UploadedImage | null>(null);
-  const [questionnaire, setQuestionnaire] = useState<Questionnaire>(DEFAULT_QUESTIONNAIRE);
-  const [provider, setProvider] = useState<VisionProviderId>("mock");
-  const [running, setRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [session, setSession] = useState<ScreeningSession | null>(null);
-  const [overlayOpen, setOverlayOpen] = useState(false);
-  const [pendingSession, setPendingSession] = useState<ScreeningSession | null>(null);
-  const [overlayDone, setOverlayDone] = useState(false);
-
-  function pickSample(id: string | null) {
-    setSelectedSampleId(id);
-    if (id) {
-      setUpload(null);
-      const sample = getSampleCase(id);
-      if (sample) setQuestionnaire(sample.questionnaire);
-    }
-  }
-
-  function pickUpload(img: UploadedImage | null) {
-    setUpload(img);
-    if (img) setSelectedSampleId(null);
-  }
-
-  async function runScreening() {
-    setError(null);
-    if (!selectedSampleId && !upload) {
-      setError("Please pick a sample case or upload an image first.");
-      return;
-    }
-    setRunning(true);
-    setSession(null);
-    setPendingSession(null);
-    setOverlayDone(false);
-    setOverlayOpen(true);
-    try {
-      const body =
-        selectedSampleId !== null
-          ? {
-              source: "sample" as const,
-              sampleId: selectedSampleId,
-              questionnaire,
-              preferredProvider: provider,
-            }
-          : {
-              source: "upload" as const,
-              imageBase64: upload!.base64,
-              imageMimeType: upload!.mimeType,
-              fileName: upload!.fileName,
-              questionnaire,
-              preferredProvider: provider,
-            };
-
-      const res = await fetch("/api/screening", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? `HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as ScreeningSession;
-      setPendingSession(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-      setOverlayOpen(false);
-      setRunning(false);
-    }
-  }
-
-  // When BOTH the overlay animation finishes AND the API has returned,
-  // commit the session and close the overlay.
-  useEffect(() => {
-    if (overlayDone && pendingSession) {
-      setSession(pendingSession);
-      setOverlayOpen(false);
-      setRunning(false);
-      setOverlayDone(false);
-      setPendingSession(null);
-      setTimeout(() => {
-        document.getElementById("results")?.scrollIntoView({ behavior: "smooth" });
-      }, 50);
-    }
-  }, [overlayDone, pendingSession]);
-
-  function handleOverlaySkip() {
-    // User pressed ESC or clicked Skip. If the API already returned, commit it
-    // immediately. Otherwise, just close — onComplete will fire later.
-    if (pendingSession) {
-      setSession(pendingSession);
-      setPendingSession(null);
-    }
-    setOverlayOpen(false);
-    setRunning(false);
-    setOverlayDone(false);
-    setTimeout(() => {
-      document.getElementById("results")?.scrollIntoView({ behavior: "smooth" });
-    }, 50);
-  }
-
-  const inputReady = selectedSampleId !== null || upload !== null;
-
+export default function LandingPage() {
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <AgentFlowOverlay
-        open={overlayOpen}
-        session={pendingSession}
-        onSkip={handleOverlaySkip}
-        onComplete={() => setOverlayDone(true)}
-      />
-      <HeroSection />
+    <main className="relative min-h-screen overflow-hidden">
+      {/* Decorative background orbs */}
+      <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-lavender-300/40 blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 top-1/3 h-80 w-80 rounded-full bg-lavender-200/50 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-lavender-100/60 blur-3xl" />
 
-      <div className="mt-6">
-        <SafetyBanner />
-      </div>
-
-      {/* Step 1 — pick input */}
-      <section className="mt-8 rounded-3xl border border-lavender-200 bg-white/70 p-6 shadow-card backdrop-blur">
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-lavender-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-lavender-900">
-            Step 1
-          </span>
-          <h2 className="text-lg font-semibold text-lavender-950">
-            Provide an oral cavity image
-          </h2>
-        </div>
-        <p className="mt-1 text-sm text-lavender-900/70">
-          Choose one of the four built-in sample cases <i>or</i> upload your own photo.
-        </p>
-
-        <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto_1fr]">
-          <SampleCaseSelector
-            selectedId={selectedSampleId}
-            onSelect={pickSample}
-            disabled={running}
-          />
-          <div className="hidden self-stretch lg:flex lg:items-center">
-            <div className="h-full w-px bg-lavender-200" />
+      <div className="relative mx-auto max-w-6xl px-6 py-16">
+        {/* Brand */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-lavender-400 to-lavender-700 text-2xl text-white shadow-lg">
+            🦷
           </div>
-          <ImageUpload value={upload} onChange={pickUpload} disabled={running} />
-        </div>
-      </section>
-
-      {/* Step 2 — questionnaire */}
-      <section className="mt-6">
-        <div className="mb-3 flex items-center gap-2">
-          <span className="rounded-full bg-lavender-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-lavender-900">
-            Step 2
-          </span>
-          <h2 className="text-lg font-semibold text-lavender-950">
-            Risk questionnaire
-          </h2>
-        </div>
-        <QuestionnaireForm
-          value={questionnaire}
-          onChange={setQuestionnaire}
-          disabled={running}
-        />
-      </section>
-
-      {/* Step 3 — provider + run */}
-      <section className="mt-6 rounded-3xl border border-lavender-200 bg-white/70 p-6 shadow-card backdrop-blur">
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-lavender-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-lavender-900">
-            Step 3
-          </span>
-          <h2 className="text-lg font-semibold text-lavender-950">
-            Run agentic AI screening
-          </h2>
-        </div>
-        <p className="mt-1 text-sm text-lavender-900/70">
-          Pick a Vision provider. If credentials are missing the system falls back to mock mode automatically.
-        </p>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {PROVIDER_OPTIONS.map((p) => (
-            <label
-              key={p.id}
-              className={`cursor-pointer rounded-xl border p-3 transition-colors ${
-                provider === p.id
-                  ? "border-lavender-500 bg-lavender-50"
-                  : "border-lavender-200 bg-white hover:border-lavender-400"
-              } ${running ? "opacity-50" : ""}`}
-            >
-              <div className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="provider"
-                  value={p.id}
-                  checked={provider === p.id}
-                  onChange={() => setProvider(p.id)}
-                  disabled={running}
-                  className="text-lavender-600 focus:ring-lavender-500"
-                />
-                <span className="text-sm font-semibold text-lavender-950">{p.label}</span>
-              </div>
-              <p className="mt-1 text-[11px] text-lavender-900/70">{p.help}</p>
-            </label>
-          ))}
-        </div>
-
-        <div className="mt-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-          <button
-            type="button"
-            onClick={runScreening}
-            disabled={running || !inputReady}
-            className="inline-flex items-center gap-2 rounded-xl bg-lavender-700 px-5 py-3 text-sm font-semibold text-white shadow-card transition-colors hover:bg-lavender-800 disabled:cursor-not-allowed disabled:bg-lavender-300"
-          >
-            {running ? (
-              <>
-                <Spinner /> Running pipeline…
-              </>
-            ) : (
-              <>▶ Run Agentic AI Screening</>
-            )}
-          </button>
-          {!inputReady && !running && (
-            <p className="text-xs text-lavender-900/70">
-              Pick a sample case or upload an image to enable.
+          <div>
+            <p className="text-sm font-bold text-lavender-950">OralScan AI</p>
+            <p className="text-[10px] uppercase tracking-widest text-lavender-700">
+              University IDP · Agentic AI Prototype
             </p>
-          )}
-          {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-              {error}
-            </p>
-          )}
+          </div>
         </div>
-      </section>
 
-      {/* Architecture explainer is always visible */}
-      <section className="mt-8">
-        <ArchitectureExplainer />
-      </section>
-
-      {/* Results */}
-      {session && (
-        <section id="results" className="mt-10">
-          <div className="mb-4 flex items-center gap-2">
-            <span className="rounded-full bg-lavender-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-lavender-900">
-              Results
+        {/* Hero */}
+        <div className="mt-12 max-w-3xl">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-lavender-300 bg-white/70 px-3 py-1 text-xs font-medium text-lavender-800 backdrop-blur">
+            <span className="h-2 w-2 rounded-full bg-lavender-500" />
+            Smart Toothbrush IoT · Hierarchical Multi-Agent System
+          </div>
+          <h1 className="text-4xl font-bold tracking-tight text-lavender-950 sm:text-5xl lg:text-6xl">
+            Agentic AI for{" "}
+            <span className="bg-gradient-to-r from-lavender-600 to-lavender-900 bg-clip-text text-transparent">
+              oral cancer screening
             </span>
-            <h2 className="text-lg font-semibold text-lavender-950">
-              Screening session report
-            </h2>
-          </div>
+          </h1>
+          <p className="mt-4 max-w-2xl text-lg text-lavender-900/85">
+            10 specialised agents collaborate on every screening — Vision, Toothbrush
+            IoT telemetry, Cancer Risk Scoring, Multi-LLM Consensus, RAG-grounded
+            explanation, Triage Prioritization, and more. Patient and clinician each
+            get their own dashboard.
+          </p>
+        </div>
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <AgentPipeline session={session} />
-            </div>
-            <ProviderStatusBadge status={session.providerStatus} />
-          </div>
+        {/* Role selection */}
+        <div className="mt-12 grid gap-6 md:grid-cols-2">
+          <RoleCard
+            href="/patient"
+            emoji="🦷"
+            badge="Patient"
+            title="Patient Dashboard"
+            description="Run a screening with your camera or sample case. View your risk trend over time. Chat with the AI assistant about what your result means."
+            ctas={[
+              { label: "New screening", href: "/patient/screening" },
+              { label: "AI assistant", href: "/patient/chat" },
+              { label: "History", href: "/patient/history" },
+            ]}
+          />
+          <RoleCard
+            href="/doctor"
+            emoji="🩺"
+            badge="Doctor"
+            title="Clinician Console"
+            description="Review the triage queue sorted by AI-calculated urgency. Dive into any session: heatmap, multi-LLM consensus, audit log. Record your clinical decision."
+            ctas={[
+              { label: "Triage queue", href: "/doctor" },
+              { label: "Analytics", href: "/doctor/analytics" },
+            ]}
+            dark
+          />
+        </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-3">
-            <ToothbrushTelemetryCard telemetry={session.toothbrush} />
-            <VisionResultCard vision={session.vision} />
-            <RiskScoreCard risk={session.risk} />
-          </div>
-
-          <div className="mt-4">
-            <PatientReportCard
-              report={session.patientReport}
-              riskLevel={session.risk.riskLevel}
-            />
-          </div>
-
-          {session.clinicianReferral && (
-            <div className="mt-4">
-              <ClinicianReferralCard referral={session.clinicianReferral} />
-            </div>
-          )}
-
-          <div className="mt-4">
-            <AuditLogPanel
-              entries={session.auditLog}
-              sessionId={session.sessionId}
-            />
+        {/* Tech depth strip */}
+        <section className="mt-16 rounded-3xl border border-lavender-200 bg-white/70 p-6 shadow-card backdrop-blur">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-lavender-700">
+            Under the hood
+          </h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <TechPill emoji="🧠" title="10 Agents" body="Orchestrator + 5 core + Chat + Consensus + Triage + Retrieval" />
+            <TechPill emoji="🔌" title="4 Pluggable Vision Providers" body="Mock · Gemini · Claude · Future Local Model" />
+            <TechPill emoji="📡" title="SSE Real-time Streaming" body="Each agent's progress streamed live to the UI" />
+            <TechPill emoji="🤝" title="Multi-LLM Consensus" body="Run Gemini + Claude in parallel; compute agreement" />
+            <TechPill emoji="🔥" title="Region Heatmap" body="Structured-output bounding boxes overlaid on the image" />
+            <TechPill emoji="📚" title="RAG Grounding" body="Knowledge base of oral cancer references" />
+            <TechPill emoji="📷" title="In-browser Camera" body="getUserMedia · capture without upload" />
+            <TechPill emoji="🔒" title="Local-first" body="No backend · localStorage history · privacy by design" />
           </div>
         </section>
-      )}
 
-      <footer className="mt-12 border-t border-lavender-200 pt-6 text-center text-xs text-lavender-900/70">
-        <p>
-          University IDP prototype · Educational use only · Not a medical device
-        </p>
-        <p className="mt-1">
-          Vision providers: Mock · Gemini · Claude · Future Local Model
-        </p>
-      </footer>
+        {/* Disclaimer */}
+        <div className="mt-10 rounded-2xl border border-lavender-300 bg-white/70 p-4 text-xs text-lavender-900/80 shadow-card backdrop-blur">
+          ⚠️ {SCREENING_DISCLAIMER}
+        </div>
+
+        <footer className="mt-10 text-center text-xs text-lavender-700">
+          University IDP · Educational use only · Not a medical device
+        </footer>
+      </div>
     </main>
   );
 }
 
-function Spinner() {
+function RoleCard({
+  href,
+  emoji,
+  badge,
+  title,
+  description,
+  ctas,
+  dark,
+}: {
+  href: string;
+  emoji: string;
+  badge: string;
+  title: string;
+  description: string;
+  ctas: { label: string; href: string }[];
+  dark?: boolean;
+}) {
   return (
-    <svg
-      className="h-4 w-4 animate-spin"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
+    <Link
+      href={href}
+      className={`group relative block overflow-hidden rounded-3xl border p-8 shadow-card transition-all hover:-translate-y-1 hover:shadow-card-hover ${
+        dark
+          ? "border-lavender-800 bg-gradient-to-br from-lavender-900 to-lavender-950 text-white"
+          : "border-lavender-200 bg-gradient-to-br from-white to-lavender-50 text-lavender-950"
+      }`}
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
+      <div
+        className={`pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full blur-2xl transition-opacity ${
+          dark ? "bg-lavender-500/30" : "bg-lavender-300/40"
+        }`}
       />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"
-      />
-    </svg>
+      <div className="relative">
+        <div className="flex items-center gap-3">
+          <span className="text-4xl">{emoji}</span>
+          <span
+            className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest ${
+              dark
+                ? "bg-white/15 text-white backdrop-blur"
+                : "bg-lavender-200 text-lavender-900"
+            }`}
+          >
+            {badge}
+          </span>
+        </div>
+        <h3 className="mt-4 text-2xl font-bold">{title}</h3>
+        <p className={`mt-2 text-sm leading-relaxed ${dark ? "text-lavender-100" : "text-lavender-900/80"}`}>
+          {description}
+        </p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          {ctas.map((c) => (
+            <span
+              key={c.href}
+              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
+                dark
+                  ? "border border-white/30 bg-white/10 text-white"
+                  : "border border-lavender-300 bg-white text-lavender-800"
+              }`}
+            >
+              {c.label}
+            </span>
+          ))}
+        </div>
+        <p className={`mt-6 text-sm font-semibold ${dark ? "text-white" : "text-lavender-800"} group-hover:underline`}>
+          Enter {badge.toLowerCase()} dashboard →
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+function TechPill({
+  emoji,
+  title,
+  body,
+}: {
+  emoji: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-lavender-100 bg-lavender-50/60 p-3">
+      <p className="flex items-center gap-2 text-sm font-semibold text-lavender-950">
+        <span>{emoji}</span> {title}
+      </p>
+      <p className="mt-1 text-xs leading-snug text-lavender-900/80">{body}</p>
+    </div>
   );
 }

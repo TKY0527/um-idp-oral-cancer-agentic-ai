@@ -1,8 +1,12 @@
-# 🦷 Agentic AI for Oral Cancer Screening
+# 🦷 OralScan AI — Agentic AI for Oral Cancer Screening
 
 > **Smart Toothbrush IoT Concept · University Integrated Design Project (IDP)**
 >
-> A hierarchical multi-agent AI system that screens for oral cancer-like signs from an oral-cavity image, simulated smart-toothbrush telemetry, and a patient questionnaire — with a transparent agent-by-agent audit trail.
+> A hierarchical multi-agent AI system with **dual dashboards** — a Patient dashboard
+> (screening, history, AI chat) and a Clinician console (triage queue, session
+> review, analytics) — built on Next.js 16, real-time SSE streaming, multi-LLM
+> consensus, RAG grounding, structured-output region detection, and an animated
+> agent-flow visualization.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
@@ -16,7 +20,22 @@
 
 ## 🎯 What it does
 
-When the user provides an oral-cavity image (or picks one of 4 built-in sample cases) and fills in a short risk questionnaire, an **Orchestrator Agent** dispatches **5 specialised sub-agents** in sequence and produces:
+Two role-based dashboards driven by **10 specialised agents** behind the scenes:
+
+```
+Landing  (/)
+├── /patient                  · Patient Dashboard
+│   ├── /patient/screening    · run a screening (camera / upload / sample)
+│   ├── /patient/history      · risk trend chart over time
+│   └── /patient/chat         · AI Health Assistant (Gemini)
+│
+└── /doctor                   · Clinician Console
+    ├── /doctor               · triage queue (sorted by urgency)
+    ├── /doctor/session/[id]  · session review + clinical decision form
+    └── /doctor/analytics     · cohort stats + AI/clinician agreement rate
+```
+
+When the patient provides an oral-cavity image (camera capture, upload, or sample) and fills in a short risk questionnaire, the **Orchestrator Agent** dispatches the sub-agents in sequence and produces:
 
 - A simulated smart-toothbrush telemetry report (image quality, coverage, session validity)
 - A vision screening result (visual finding, suspected region, oral-cancer-like probability)
@@ -78,12 +97,32 @@ A **hierarchical multi-agent** design. The Orchestrator is the only agent that k
 |---|-------|---------------|
 | 1 | **🧠 Orchestrator** | Owns the workflow, creates session id, calls every other agent, writes audit log |
 | 2 | **🪥 Toothbrush IoT** | Simulates brushing duration, pressure, motion blur, image quality, coverage, session validity, rescan recommendation |
-| 3 | **👁️ Vision Screening** | Calls one of four pluggable vision providers; falls back to mock automatically on failure |
-| 4 | **📊 Cancer Risk Scoring** | Combines vision + questionnaire + telemetry quality into a 0–100 score with transparent driver list |
-| 5 | **💬 Patient Communication** | Translates the technical result into plain-language patient advice — never says "confirmed cancer" |
-| 6 | **🩺 Clinician Referral** | Builds a structured referral packet for a dentist or oral medicine specialist (High-risk only) |
+| 3 | **👁️ Vision Screening** | Calls one of four pluggable vision providers; falls back to mock automatically on failure. Returns structured JSON + bounding boxes |
+| 4 | **🤝 Consensus** *(new)* | Runs a second provider in parallel and scores agreement across finding / probability bucket / region |
+| 5 | **📊 Cancer Risk Scoring** | Combines vision + questionnaire + telemetry quality into a 0–100 score with transparent driver list |
+| 6 | **📚 Retrieval (RAG)** *(new)* | Grounds the result with top-K passages from an oral-cancer knowledge base |
+| 7 | **💬 Patient Communication** | Translates the technical result into plain-language patient advice — never says "confirmed cancer" |
+| 8 | **🩺 Clinician Referral** | Builds a structured referral packet for a dentist or oral medicine specialist (High-risk only) |
+| 9 | **🚦 Triage Prioritization** *(new)* | Computes urgency 0–100 + recommended SLA hours; drives the doctor queue ordering |
+| 10 | **🗣️ Chat Agent** *(new)* | Patient-facing conversational assistant; uses Gemini if configured, else safe fallback |
 
 ---
+
+## 🚀 Latest-trend tech in this prototype
+
+| Tech | Where it's used |
+|---|---|
+| **Next.js 16 App Router** | Multi-route dashboards under `app/patient/*` and `app/doctor/*` |
+| **Server-Sent Events (SSE)** | `app/api/screening/stream/route.ts` — agents stream `agent_started` / `agent_completed` events live |
+| **Gemini structured outputs** (`responseSchema`) | Hard-typed JSON return from the Vision agent including bounding boxes for the heatmap |
+| **Multi-LLM consensus voting** | Run two providers in parallel; compute finding+probability+region agreement |
+| **RAG (retrieval-augmented generation)** | Naive keyword retriever over a curated KB — easy to swap for embeddings later |
+| **`getUserMedia` camera capture** | In-browser oral-cavity capture with framing guide, no upload step |
+| **Region heatmap overlay** | Translucent glowing rectangles drawn over the image at normalized coords |
+| **Local-first persistence** | All sessions stored in `localStorage`; cross-tab sync via store subscription |
+| **`useTransition`-friendly UI** | Hooks-driven session store with pub-sub for instant cross-page updates |
+| **Pure SVG charts** | Risk-trend line chart with zero charting-library dependency |
+| **Force-loaded `.env.local`** | `lib/utils/loadEnvLocal.ts` overrides any expired OS env var |
 
 ## 🔌 Vision providers (pluggable)
 

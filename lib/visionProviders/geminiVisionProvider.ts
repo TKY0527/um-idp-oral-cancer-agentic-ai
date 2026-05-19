@@ -1,4 +1,4 @@
-import type { VisionResult } from "@/lib/types/screening";
+import type { DetectionBox, VisionResult } from "@/lib/types/screening";
 import { SCREENING_DISCLAIMER } from "@/lib/utils/riskUtils";
 import type {
   VisionProvider,
@@ -9,16 +9,81 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 const GEMINI_ENDPOINT = (apiKey: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
-const SYSTEM_PROMPT = `You are assisting with an educational oral cancer screening prototype. Analyze the oral cavity image for visible screening cues only. Do not give a medical diagnosis. Do not claim certainty. Identify whether the image appears to show normal tissue, ulcer-like appearance, white patch-like area, red patch-like area, mixed white/red patch-like area, or unclear image quality. Estimate an oral-cancer-like visual risk probability from 0 to 1 for prototype triage only. Return JSON only with fields: visualFinding, suspectedRegion, oralCancerLikeProbability, confidence, imageQuality, observationSummary, disclaimer. The disclaimer must say this is not a diagnosis and a dentist or doctor should be consulted.
+const SYSTEM_PROMPT = `You are assisting with an educational oral cancer screening prototype. Analyze the oral cavity image for visible screening cues only. Do not give a medical diagnosis. Do not claim certainty.
 
-Allowed values:
-- visualFinding: "normal" | "ulcer_like" | "white_patch_like" | "red_patch_like" | "mixed_white_red_patch_like" | "unclear"
-- suspectedRegion: "none" | "tongue" | "lateral tongue" | "inner cheek" | "floor of mouth" | "gum" | "palate" | "unknown"
-- oralCancerLikeProbability: number between 0 and 1
+Return a single JSON object with these fields:
+- visualFinding: one of "normal", "ulcer_like", "white_patch_like", "red_patch_like", "mixed_white_red_patch_like", "unclear"
+- suspectedRegion: one of "none", "tongue", "lateral tongue", "inner cheek", "floor of mouth", "gum", "palate", "unknown"
+- oralCancerLikeProbability: number between 0 and 1 (prototype triage only)
 - confidence: number between 0 and 1
-- imageQuality: "good" | "moderate" | "poor"
+- imageQuality: one of "good", "moderate", "poor"
+- observationSummary: 1–2 sentence plain-English description
+- reasoning: 1–3 sentences explaining how you reached the visualFinding (chain-of-thought visible to the patient)
+- detections: array of bounding boxes (can be empty). Each item: { x, y, w, h, label, score } where x,y,w,h are normalized to 0..1 of the image and label is one of the visualFinding values
+- disclaimer: must literally say "This prototype is not a medical diagnosis. It is an educational oral cancer screening demonstration. Please consult a qualified dentist or doctor for proper diagnosis."
 
-Respond with ONLY a single JSON object, no markdown fences, no extra text.`;
+Respond with ONLY the JSON object, no markdown fences, no extra text.`;
+
+// JSON schema enforced by Gemini's structured-output feature.
+const RESPONSE_SCHEMA = {
+  type: "object",
+  properties: {
+    visualFinding: {
+      type: "string",
+      enum: [
+        "normal",
+        "ulcer_like",
+        "white_patch_like",
+        "red_patch_like",
+        "mixed_white_red_patch_like",
+        "unclear",
+      ],
+    },
+    suspectedRegion: {
+      type: "string",
+      enum: [
+        "none",
+        "tongue",
+        "lateral tongue",
+        "inner cheek",
+        "floor of mouth",
+        "gum",
+        "palate",
+        "unknown",
+      ],
+    },
+    oralCancerLikeProbability: { type: "number" },
+    confidence: { type: "number" },
+    imageQuality: { type: "string", enum: ["good", "moderate", "poor"] },
+    observationSummary: { type: "string" },
+    reasoning: { type: "string" },
+    detections: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          x: { type: "number" },
+          y: { type: "number" },
+          w: { type: "number" },
+          h: { type: "number" },
+          label: { type: "string" },
+          score: { type: "number" },
+        },
+        required: ["x", "y", "w", "h", "label", "score"],
+      },
+    },
+    disclaimer: { type: "string" },
+  },
+  required: [
+    "visualFinding",
+    "suspectedRegion",
+    "oralCancerLikeProbability",
+    "confidence",
+    "imageQuality",
+    "observationSummary",
+    "disclaimer",
+  ],
+} as const;
 
 function extractJson(text: string): unknown {
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -31,12 +96,32 @@ function extractJson(text: string): unknown {
   return JSON.parse(candidate.slice(firstBrace, lastBrace + 1));
 }
 
+function clamp01(v: unknown, fallback: number): number {
+  const n = typeof v === "number" ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback;
+}
+
+function coerceDetections(raw: unknown): DetectionBox[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  return raw
+    .map((r) => {
+      if (!r || typeof r !== "object") return null;
+      const o = r as Record<string, unknown>;
+      return {
+        x: clamp01(o.x, 0),
+        y: clamp01(o.y, 0),
+        w: clamp01(o.w, 0),
+        h: clamp01(o.h, 0),
+        label: typeof o.label === "string" ? o.label : "region",
+        score: clamp01(o.score, 0.5),
+      } satisfies DetectionBox;
+    })
+    .filter((b): b is DetectionBox => b !== null && b.w > 0 && b.h > 0)
+    .slice(0, 5);
+}
+
 function coerceVisionResult(raw: unknown): VisionResult {
   const r = (raw ?? {}) as Record<string, unknown>;
-  const num = (v: unknown, fallback: number) => {
-    const n = typeof v === "number" ? v : parseFloat(String(v));
-    return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback;
-  };
   const allowedFindings = new Set([
     "normal",
     "ulcer_like",
@@ -61,15 +146,23 @@ function coerceVisionResult(raw: unknown): VisionResult {
   const quality = String(r.imageQuality ?? "moderate");
 
   return {
-    visualFinding: (allowedFindings.has(finding) ? finding : "unclear") as VisionResult["visualFinding"],
-    suspectedRegion: (allowedRegions.has(region) ? region : "unknown") as VisionResult["suspectedRegion"],
-    oralCancerLikeProbability: num(r.oralCancerLikeProbability, 0.2),
-    confidence: num(r.confidence, 0.5),
-    imageQuality: (allowedQuality.has(quality) ? quality : "moderate") as VisionResult["imageQuality"],
+    visualFinding: (allowedFindings.has(finding)
+      ? finding
+      : "unclear") as VisionResult["visualFinding"],
+    suspectedRegion: (allowedRegions.has(region)
+      ? region
+      : "unknown") as VisionResult["suspectedRegion"],
+    oralCancerLikeProbability: clamp01(r.oralCancerLikeProbability, 0.2),
+    confidence: clamp01(r.confidence, 0.5),
+    imageQuality: (allowedQuality.has(quality)
+      ? quality
+      : "moderate") as VisionResult["imageQuality"],
     observationSummary: String(
       r.observationSummary ?? "Gemini Vision analysis returned without an explicit summary."
     ),
     disclaimer: String(r.disclaimer ?? SCREENING_DISCLAIMER),
+    detections: coerceDetections(r.detections),
+    reasoning: typeof r.reasoning === "string" ? r.reasoning : undefined,
   };
 }
 
@@ -113,6 +206,7 @@ export const geminiVisionProvider: VisionProvider = {
         generationConfig: {
           temperature: 0.2,
           responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA,
         },
       };
 
@@ -125,7 +219,9 @@ export const geminiVisionProvider: VisionProvider = {
 
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
-        throw new Error(`Gemini API error ${res.status}: ${errText.slice(0, 300)}`);
+        throw new Error(
+          `Gemini API error ${res.status}: ${errText.slice(0, 300)}`
+        );
       }
 
       const json = (await res.json()) as {
@@ -134,8 +230,9 @@ export const geminiVisionProvider: VisionProvider = {
         }>;
       };
       const text =
-        json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ??
-        "";
+        json.candidates?.[0]?.content?.parts
+          ?.map((p) => p.text ?? "")
+          .join("") ?? "";
       const parsed = extractJson(text);
       return coerceVisionResult(parsed);
     } finally {

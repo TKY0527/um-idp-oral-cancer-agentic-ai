@@ -48,6 +48,18 @@ export interface ToothbrushTelemetry {
   note: string;
 }
 
+export interface DetectionBox {
+  /** Normalized 0..1 coordinates relative to image width/height. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Label of the detected region, e.g. "white_patch_like". */
+  label: string;
+  /** 0..1 confidence in this specific box. */
+  score: number;
+}
+
 export interface VisionResult {
   visualFinding: VisualFinding;
   suspectedRegion: SuspectedRegion;
@@ -56,6 +68,10 @@ export interface VisionResult {
   imageQuality: ImageQuality;
   observationSummary: string;
   disclaimer: string;
+  /** Optional: regions of interest for heatmap overlay. */
+  detections?: DetectionBox[];
+  /** Optional: chain-of-thought reasoning extracted from the model. */
+  reasoning?: string;
 }
 
 export interface RiskScore {
@@ -102,6 +118,23 @@ export interface ProviderStatus {
   reason?: string;
 }
 
+export interface TriagePriority {
+  /** 0..100, higher = more urgent */
+  urgencyScore: number;
+  /** Rank position in the doctor queue (assigned client-side). */
+  rank?: number;
+  reasons: string[];
+  recommendedSlaHours: number;
+}
+
+export interface RetrievalSnippet {
+  id: string;
+  title: string;
+  source: string;
+  excerpt: string;
+  relevance: number;
+}
+
 export interface ScreeningSession {
   sessionId: string;
   startedAt: string;
@@ -119,7 +152,24 @@ export interface ScreeningSession {
     sampleId?: string;
     fileName?: string;
     sizeBytes?: number;
+    /** Stored as data URL for replay in /doctor — only kept client-side. */
+    previewDataUrl?: string;
   };
+  /** Optional: multi-LLM consensus output. */
+  consensus?: ConsensusReport;
+  /** Optional: triage prioritization (set when queued for doctor). */
+  triage?: TriagePriority;
+  /** Optional: RAG snippets supporting the assessment. */
+  retrieval?: RetrievalSnippet[];
+  /** Optional: doctor's notes/actions (set in /doctor). */
+  clinicianReview?: ClinicianReview;
+}
+
+export interface ClinicianReview {
+  reviewedAt: string;
+  reviewerName: string;
+  decision: "agree" | "downgrade" | "upgrade" | "refer_specialist";
+  notes: string;
 }
 
 export interface ScreeningRequestBody {
@@ -130,4 +180,34 @@ export interface ScreeningRequestBody {
   fileName?: string;
   questionnaire: Questionnaire;
   preferredProvider?: VisionProviderId;
+  /** Run a second provider in parallel for cross-checking. */
+  consensusProvider?: VisionProviderId;
+}
+
+export interface ConsensusReport {
+  primaryProvider: VisionProviderId;
+  secondaryProvider: VisionProviderId;
+  agreement: "strong" | "partial" | "weak" | "conflict";
+  agreementScore: number;
+  primary: VisionResult;
+  secondary: VisionResult;
+  note: string;
+}
+
+export type ChatRole = "user" | "assistant";
+
+export interface ChatMessage {
+  id: string;
+  role: ChatRole;
+  content: string;
+  timestamp: string;
+}
+
+export interface ChatRequestBody {
+  messages: { role: ChatRole; content: string }[];
+  patientContext?: {
+    latestRiskLevel?: RiskLevel;
+    latestScore?: number;
+    latestFinding?: string;
+  };
 }

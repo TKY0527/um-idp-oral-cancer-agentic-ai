@@ -12,6 +12,9 @@ import { runVisionScreeningAgent } from "@/lib/agents/visionScreeningAgent";
 import { runCancerRiskScoringAgent } from "@/lib/agents/cancerRiskScoringAgent";
 import { runPatientCommunicationAgent } from "@/lib/agents/patientCommunicationAgent";
 import { runClinicianReferralAgent } from "@/lib/agents/clinicianReferralAgent";
+import { runTriagePrioritizationAgent } from "@/lib/agents/triagePrioritizationAgent";
+import { runRetrievalAgent } from "@/lib/agents/retrievalAgent";
+import { runConsensusAgent } from "@/lib/agents/consensusAgent";
 
 export interface OrchestratorInput {
   source: "sample" | "upload";
@@ -22,6 +25,9 @@ export interface OrchestratorInput {
   preset?: VisionResult;
   questionnaire: Questionnaire;
   preferredProvider: VisionProviderId;
+  consensusProvider?: VisionProviderId;
+  /** Optional per-step progress callback for SSE streaming. */
+  onStep?: (event: { agent: string; status: "started" | "completed" | "skipped"; detail?: string }) => void;
 }
 
 /**
@@ -46,7 +52,10 @@ export async function runOrchestratorAgent(
     log.push({ timestamp: nowISO(), agent, event, detail });
   };
 
+  const emit = input.onStep ?? (() => {});
+
   logEvent("Orchestrator", "session_started", `Session id: ${sessionId}`);
+  emit({ agent: "Orchestrator", status: "started", detail: sessionId });
   logEvent(
     "Orchestrator",
     "inputs_received",
@@ -54,6 +63,7 @@ export async function runOrchestratorAgent(
   );
 
   // 1. Toothbrush IoT Agent
+  emit({ agent: "ToothbrushIoTAgent", status: "started" });
   logEvent("ToothbrushIoTAgent", "called", "Simulating smart toothbrush telemetry");
   const toothbrush = await runToothbrushIoTAgent({
     seed: sessionId,
@@ -64,8 +74,10 @@ export async function runOrchestratorAgent(
     "completed",
     `sessionValid=${toothbrush.sessionValid}, imageQualityScore=${toothbrush.imageQualityScore}`
   );
+  emit({ agent: "ToothbrushIoTAgent", status: "completed", detail: `quality=${toothbrush.imageQualityScore}` });
 
   // 2. Vision Screening Agent
+  emit({ agent: "VisionScreeningAgent", status: "started", detail: input.preferredProvider });
   logEvent(
     "VisionScreeningAgent",
     "called",
@@ -89,8 +101,45 @@ export async function runOrchestratorAgent(
     "completed",
     `finding=${visionRes.vision.visualFinding}, prob=${visionRes.vision.oralCancerLikeProbability.toFixed(2)}, used=${visionRes.providerStatus.used}`
   );
+  emit({ agent: "VisionScreeningAgent", status: "completed", detail: visionRes.vision.visualFinding });
+
+  // 2b. Optional Consensus Agent (run a second LLM in parallel for cross-check)
+  let consensus = undefined as ScreeningSession["consensus"];
+  if (
+    input.consensusProvider &&
+    input.consensusProvider !== input.preferredProvider &&
+    input.imageBase64
+  ) {
+    emit({ agent: "ConsensusAgent", status: "started", detail: input.consensusProvider });
+    logEvent(
+      "ConsensusAgent",
+      "called",
+      `Cross-checking ${input.preferredProvider} vs ${input.consensusProvider}`
+    );
+    try {
+      consensus = await runConsensusAgent({
+        primaryProvider: input.preferredProvider,
+        secondaryProvider: input.consensusProvider,
+        imageBase64: input.imageBase64,
+        imageMimeType: input.imageMimeType ?? "image/jpeg",
+      });
+      logEvent(
+        "ConsensusAgent",
+        "completed",
+        `agreement=${consensus.agreement} (${consensus.agreementScore})`
+      );
+      emit({ agent: "ConsensusAgent", status: "completed", detail: consensus.agreement });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown";
+      logEvent("ConsensusAgent", "failed", msg);
+      emit({ agent: "ConsensusAgent", status: "skipped", detail: msg });
+    }
+  } else {
+    emit({ agent: "ConsensusAgent", status: "skipped" });
+  }
 
   // 3. Cancer Risk Scoring Agent
+  emit({ agent: "CancerRiskScoringAgent", status: "started" });
   logEvent("CancerRiskScoringAgent", "called", "Combining vision + questionnaire + telemetry");
   const risk = await runCancerRiskScoringAgent({
     vision: visionRes.vision,
@@ -102,8 +151,25 @@ export async function runOrchestratorAgent(
     "completed",
     `score=${risk.score}, level=${risk.riskLevel}, confidence=${risk.confidenceLevel}`
   );
+  emit({ agent: "CancerRiskScoringAgent", status: "completed", detail: `${risk.score}/${risk.riskLevel}` });
+
+  // 3b. Retrieval Agent (RAG over oral-cancer knowledge base)
+  emit({ agent: "RetrievalAgent", status: "started" });
+  logEvent("RetrievalAgent", "called", "Grounding result in oral-cancer knowledge base");
+  const retrieval = await runRetrievalAgent({
+    vision: visionRes.vision,
+    questionnaire: input.questionnaire,
+    topK: 3,
+  });
+  logEvent(
+    "RetrievalAgent",
+    "completed",
+    `top hit: ${retrieval[0]?.title ?? "(none)"}`
+  );
+  emit({ agent: "RetrievalAgent", status: "completed", detail: retrieval[0]?.title });
 
   // 4. Patient Communication Agent
+  emit({ agent: "PatientCommunicationAgent", status: "started" });
   logEvent("PatientCommunicationAgent", "called", "Generating patient-friendly report");
   const patientReport = await runPatientCommunicationAgent({
     vision: visionRes.vision,
@@ -111,10 +177,12 @@ export async function runOrchestratorAgent(
     toothbrush,
   });
   logEvent("PatientCommunicationAgent", "completed", `headline="${patientReport.headline}"`);
+  emit({ agent: "PatientCommunicationAgent", status: "completed", detail: patientReport.headline });
 
   // 5. Clinician Referral Agent (only when high risk)
   let clinicianReferral: ClinicianReferral | null = null;
   if (risk.riskLevel === "High") {
+    emit({ agent: "ClinicianReferralAgent", status: "started" });
     logEvent("ClinicianReferralAgent", "called", "High risk → generating referral packet");
     clinicianReferral = await runClinicianReferralAgent({
       vision: visionRes.vision,
@@ -123,16 +191,38 @@ export async function runOrchestratorAgent(
       questionnaire: input.questionnaire,
     });
     logEvent("ClinicianReferralAgent", "completed", "Referral packet ready");
+    emit({ agent: "ClinicianReferralAgent", status: "completed" });
   } else {
     logEvent(
       "ClinicianReferralAgent",
       "skipped",
       `Risk level is ${risk.riskLevel} — referral not required.`
     );
+    emit({ agent: "ClinicianReferralAgent", status: "skipped", detail: risk.riskLevel });
   }
+
+  // 6. Triage Prioritization Agent — used by the doctor queue
+  emit({ agent: "TriagePrioritizationAgent", status: "started" });
+  logEvent(
+    "TriagePrioritizationAgent",
+    "called",
+    "Computing urgency rank for doctor queue"
+  );
+  const triage = await runTriagePrioritizationAgent({
+    risk,
+    vision: visionRes.vision,
+    questionnaire: input.questionnaire,
+  });
+  logEvent(
+    "TriagePrioritizationAgent",
+    "completed",
+    `urgency=${triage.urgencyScore}, SLA=${triage.recommendedSlaHours}h`
+  );
+  emit({ agent: "TriagePrioritizationAgent", status: "completed", detail: `urgency=${triage.urgencyScore}` });
 
   const finishedAt = nowISO();
   logEvent("Orchestrator", "session_completed", `Finished at ${finishedAt}`);
+  emit({ agent: "Orchestrator", status: "completed", detail: finishedAt });
 
   return {
     sessionId,
@@ -154,5 +244,8 @@ export async function runOrchestratorAgent(
         ? Math.floor((input.imageBase64.length * 3) / 4)
         : undefined,
     },
+    consensus,
+    triage,
+    retrieval,
   };
 }
