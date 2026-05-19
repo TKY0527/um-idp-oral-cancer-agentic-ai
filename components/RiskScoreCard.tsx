@@ -3,9 +3,17 @@ import { riskLevelColorClass } from "@/lib/utils/riskUtils";
 
 interface Props {
   risk: RiskScore;
+  /** When true, hides "+18, NCCN…" citations from each driver — safer for
+   *  patient view. Doctor view keeps the citations visible. */
+  patientMode?: boolean;
 }
 
-export function RiskScoreCard({ risk }: Props) {
+function stripCitation(driverLine: string): string {
+  // Removes the trailing "(+N, Source)" tag from "Label (+N, Source)".
+  return driverLine.replace(/\s*\(\+\d+[^)]*\)\s*$/, "");
+}
+
+export function RiskScoreCard({ risk, patientMode = false }: Props) {
   const ringColor =
     risk.riskLevel === "Low"
       ? "stroke-emerald-500"
@@ -81,7 +89,7 @@ export function RiskScoreCard({ risk }: Props) {
               <ul className="mt-1 space-y-0.5">
                 {risk.topRiskDrivers.map((d, i) => (
                   <li key={i} className="text-xs text-lavender-900">
-                    • {d}
+                    • {patientMode ? stripCitation(d) : d}
                   </li>
                 ))}
               </ul>

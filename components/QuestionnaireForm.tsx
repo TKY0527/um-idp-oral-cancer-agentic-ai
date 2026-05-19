@@ -41,42 +41,49 @@ export function QuestionnaireForm({ value, onChange, disabled }: Props) {
 
         <CheckboxField
           label="Tobacco use"
+          hint="Includes cigarettes, cigars, pipes, and chewing tobacco"
           checked={value.tobacco}
           onChange={(v) => set("tobacco", v)}
           disabled={disabled}
         />
         <CheckboxField
           label="Alcohol use"
+          hint="Regular drinking — beer, wine, or spirits"
           checked={value.alcohol}
           onChange={(v) => set("alcohol", v)}
           disabled={disabled}
         />
         <CheckboxField
           label="Betel quid / areca nut use"
+          hint="Sirih / pinang / paan — common in South & SE Asia. Includes daily, occasional, or past use."
           checked={value.betelQuid}
           onChange={(v) => set("betelQuid", v)}
           disabled={disabled}
         />
         <CheckboxField
           label="Family history of oral cancer"
+          hint="Parent, sibling, or child diagnosed with oral cancer"
           checked={value.familyHistory}
           onChange={(v) => set("familyHistory", v)}
           disabled={disabled}
         />
         <CheckboxField
           label="Pain"
+          hint="Pain in your mouth that doesn't go away"
           checked={value.pain}
           onChange={(v) => set("pain", v)}
           disabled={disabled}
         />
         <CheckboxField
           label="Bleeding"
+          hint="Spontaneous bleeding from a sore or lesion in your mouth"
           checked={value.bleeding}
           onChange={(v) => set("bleeding", v)}
           disabled={disabled}
         />
         <CheckboxField
           label="Ulcer present"
+          hint="A sore, blister, or open wound inside your mouth"
           checked={value.ulcer}
           onChange={(v) => set("ulcer", v)}
           disabled={disabled}
@@ -122,18 +129,20 @@ function NumberField({
 
 function CheckboxField({
   label,
+  hint,
   checked,
   onChange,
   disabled,
 }: {
   label: string;
+  hint?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
 }) {
   return (
     <label
-      className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm transition-colors ${
+      className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 text-sm transition-colors ${
         checked
           ? "border-lavender-500 bg-lavender-50 text-lavender-900"
           : "border-lavender-200 bg-white text-lavender-900 hover:border-lavender-400"
@@ -144,9 +153,16 @@ function CheckboxField({
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         disabled={disabled}
-        className="h-4 w-4 rounded border-lavender-400 text-lavender-600 focus:ring-lavender-500"
+        className="mt-0.5 h-4 w-4 rounded border-lavender-400 text-lavender-600 focus:ring-lavender-500"
       />
-      <span>{label}</span>
+      <span className="flex-1">
+        <span className="block font-medium">{label}</span>
+        {hint && (
+          <span className="mt-0.5 block text-[11px] leading-snug text-lavender-700">
+            {hint}
+          </span>
+        )}
+      </span>
     </label>
   );
 }

@@ -12,6 +12,8 @@ export default function PatientHomePage() {
   const mediumCount = sessions.filter((s) => s.risk.riskLevel === "Medium").length;
   const lowCount = sessions.filter((s) => s.risk.riskLevel === "Low").length;
 
+  const firstRun = sessions.length === 0;
+
   return (
     <div>
       <header className="rounded-3xl border border-lavender-200 bg-gradient-to-br from-lavender-100 via-white to-lavender-50 p-8 shadow-card">
@@ -19,11 +21,61 @@ export default function PatientHomePage() {
           <span className="h-2 w-2 rounded-full bg-lavender-500" />
           Patient Dashboard
         </div>
-        <h1 className="text-3xl font-bold text-lavender-950">Welcome back 👋</h1>
+        <h1 className="text-3xl font-bold text-lavender-950">
+          {firstRun ? "Welcome! 👋" : "Welcome back 👋"}
+        </h1>
         <p className="mt-1 text-lavender-800">
           Track your oral health over time. Your data lives only on this device.
         </p>
       </header>
+
+      {firstRun && (
+        <section className="mt-6 rounded-3xl border border-lavender-300 bg-white p-6 shadow-card">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-lavender-100 text-xl">
+              👋
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-lavender-950">
+                First time here? Here&apos;s how it works.
+              </h2>
+              <ol className="mt-2 space-y-2 text-sm text-lavender-900">
+                <li>
+                  <b>1.</b> Open <b>New Screening</b> in the menu.
+                </li>
+                <li>
+                  <b>2.</b> Choose a built-in sample case <i>or</i> take a picture of your mouth with your camera.
+                </li>
+                <li>
+                  <b>3.</b> Answer a short questionnaire — only takes about a minute.
+                </li>
+                <li>
+                  <b>4.</b> Click <b>Run Agentic AI Screening</b>. The result will appear with a clear Low / Medium / High band and what to do next.
+                </li>
+              </ol>
+              <p className="mt-3 rounded-lg border border-lavender-200 bg-lavender-50 p-3 text-xs text-lavender-900">
+                <b>Important:</b> This is an educational prototype, not a medical
+                device. Results are screening hints only — always see a dentist
+                for a real diagnosis.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href="/patient/screening"
+                  className="rounded-xl bg-lavender-700 px-4 py-2 text-sm font-semibold text-white hover:bg-lavender-800"
+                >
+                  Start your first screening →
+                </Link>
+                <Link
+                  href="/patient/chat"
+                  className="rounded-xl border border-lavender-300 bg-white px-4 py-2 text-sm font-semibold text-lavender-800 hover:bg-lavender-100"
+                >
+                  Or ask the AI Assistant first
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Total screenings" value={total.toString()} />

@@ -46,11 +46,16 @@ export function CameraCapture({ onCapture, disabled }: Props) {
         await videoRef.current.play().catch(() => undefined);
       }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? `Cannot access camera: ${err.message}`
-          : "Cannot access camera"
-      );
+      const name = err instanceof Error ? err.name : "";
+      const friendly =
+        name === "NotAllowedError" || name === "PermissionDeniedError"
+          ? "Camera access was blocked. Click the camera icon in your browser's address bar and allow access, then try again. Or use the upload option instead."
+          : name === "NotFoundError"
+            ? "No camera was found on this device. Use the upload option instead."
+            : name === "NotReadableError"
+              ? "Your camera is being used by another app. Close other video apps and try again."
+              : "Couldn't open the camera. Use the upload option instead.";
+      setError(friendly);
     }
   }
 

@@ -66,7 +66,7 @@ export function RiskTrendChart({ sessions }: Props) {
       </div>
 
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full">
-        {/* Risk band backgrounds */}
+        {/* Risk band backgrounds with text labels for colourblind users */}
         <rect
           x={padding.l}
           y={yFor(100)}
@@ -75,6 +75,16 @@ export function RiskTrendChart({ sessions }: Props) {
           fill="#fee2e2"
           opacity="0.5"
         />
+        <text
+          x={W - padding.r - 4}
+          y={yFor(100) + 12}
+          textAnchor="end"
+          fontSize="9"
+          fill="#991b1b"
+          fontWeight="600"
+        >
+          HIGH
+        </text>
         <rect
           x={padding.l}
           y={yFor(60)}
@@ -83,6 +93,16 @@ export function RiskTrendChart({ sessions }: Props) {
           fill="#fef3c7"
           opacity="0.5"
         />
+        <text
+          x={W - padding.r - 4}
+          y={yFor(60) + 12}
+          textAnchor="end"
+          fontSize="9"
+          fill="#92400e"
+          fontWeight="600"
+        >
+          MEDIUM
+        </text>
         <rect
           x={padding.l}
           y={yFor(30)}
@@ -91,6 +111,16 @@ export function RiskTrendChart({ sessions }: Props) {
           fill="#d1fae5"
           opacity="0.5"
         />
+        <text
+          x={W - padding.r - 4}
+          y={yFor(30) + 12}
+          textAnchor="end"
+          fontSize="9"
+          fill="#065f46"
+          fontWeight="600"
+        >
+          LOW
+        </text>
 
         {/* Y-axis labels */}
         {[0, 30, 60, 100].map((y) => (

@@ -127,7 +127,24 @@ export default function PatientScreeningPage() {
       setPendingSession(data);
       sessionStore.add(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      // Patient-friendly translation — never show raw stack traces or
+      // provider error messages to a patient.
+      const raw = err instanceof Error ? err.message : "Unknown error";
+      let friendly: string;
+      if (raw.includes("network") || raw.includes("fetch")) {
+        friendly =
+          "We couldn't reach the screening service. Please check your internet connection and try again.";
+      } else if (raw.includes("API key") || raw.includes("INVALID_ARGUMENT")) {
+        friendly =
+          "The AI provider isn't configured properly on this device. The screening can still run in offline mock mode — switch the Vision provider to 'Mock' under Step 3 and try again.";
+      } else if (raw.toLowerCase().includes("image")) {
+        friendly =
+          "We couldn't process this image. Try a clearer, well-lit photo with your mouth filling most of the frame.";
+      } else {
+        friendly =
+          "Something went wrong. Please try again, or pick the 'Mock' provider under Step 3 for an offline run.";
+      }
+      setError(friendly);
       setOverlayOpen(false);
       setRunning(false);
     }
@@ -337,7 +354,7 @@ export default function PatientScreeningPage() {
           <div className="mt-4 grid gap-4 lg:grid-cols-3">
             <ToothbrushTelemetryCard telemetry={session.toothbrush} />
             <VisionResultCard vision={session.vision} />
-            <RiskScoreCard risk={session.risk} />
+            <RiskScoreCard risk={session.risk} patientMode />
           </div>
 
           {session.consensus && (
