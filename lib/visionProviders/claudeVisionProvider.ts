@@ -5,7 +5,7 @@ import type {
   VisionProviderInput,
 } from "@/lib/visionProviders/mockVisionProvider";
 
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-4-5";
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-4-7";
 const CLAUDE_ENDPOINT = "https://api.anthropic.com/v1/messages";
 
 const PROMPT_TEXT = `You are assisting with an educational oral cancer screening prototype. Analyze the oral cavity image for visible screening cues only. Do not give a medical diagnosis. Do not claim certainty. Identify whether the image appears to show normal tissue, ulcer-like appearance, white patch-like area, red patch-like area, mixed white/red patch-like area, or unclear image quality. Estimate an oral-cancer-like visual risk probability from 0 to 1 for prototype triage only. Return JSON only with fields: visualFinding, suspectedRegion, oralCancerLikeProbability, confidence, imageQuality, observationSummary, disclaimer. The disclaimer must say this is not a diagnosis and a dentist or doctor should be consulted.

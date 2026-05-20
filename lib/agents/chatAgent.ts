@@ -27,7 +27,7 @@ const SYSTEM_INSTRUCTION = `You are the patient-facing AI Health Assistant insid
 // Chat uses a dedicated, fast Flash model regardless of the heavier model the
 // Vision agent might use. Patients won't wait 10s for a chat reply.
 const CHAT_MODEL =
-  process.env.GEMINI_CHAT_MODEL ?? "gemini-2.5-flash";
+  process.env.GEMINI_CHAT_MODEL ?? "gemini-3.5-flash";
 
 function fallbackReply(userText: string, ctx: ChatInput["patientContext"]): string {
   const lower = userText.toLowerCase();

@@ -14,7 +14,7 @@
  */
 
 const DEFAULT_MODEL =
-  process.env.GEMINI_EXPERT_MODEL ?? "gemini-2.5-flash";
+  process.env.GEMINI_EXPERT_MODEL ?? "gemini-3.5-flash";
 
 export interface ExpertCallOptions {
   systemPrompt: string;
@@ -75,7 +75,11 @@ export async function callGeminiExpert<T>(opts: ExpertCallOptions): Promise<T> {
           generationConfig: {
             temperature: opts.temperature ?? 0.3,
             responseMimeType: "application/json",
-            maxOutputTokens: 800,
+            // gemini-3.5-flash has built-in thinking; the token budget is
+            // shared with thinking tokens. 800 is too tight — bump to 4096
+            // so even with ~2k thinking tokens we still have headroom for
+            // the JSON expert opinion.
+            maxOutputTokens: 4096,
           },
         }),
         signal: controller.signal,

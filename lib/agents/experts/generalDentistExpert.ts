@@ -182,7 +182,11 @@ export async function runGeneralDentistExpert(
       temperature: 0.4, // a bit more conversational
     });
     return coerce(raw, input.vision, "gemini", false);
-  } catch {
+  } catch (err) {
+    console.warn(
+      "[generalDentistExpert] Gemini failed, falling back to mock:",
+      err instanceof Error ? err.message : err
+    );
     return mockOpinion(input);
   }
 }

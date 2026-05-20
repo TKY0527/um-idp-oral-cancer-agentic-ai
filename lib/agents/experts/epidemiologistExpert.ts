@@ -192,7 +192,11 @@ export async function runEpidemiologistExpert(
       temperature: 0.3, // data-driven
     });
     return coerce(raw, input.vision, "gemini", false);
-  } catch {
+  } catch (err) {
+    console.warn(
+      "[epidemiologistExpert] Gemini failed, falling back to mock:",
+      err instanceof Error ? err.message : err
+    );
     return mockOpinion(input);
   }
 }

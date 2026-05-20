@@ -6,6 +6,17 @@ import type {
   VisualFinding,
 } from "@/lib/types/screening";
 import { callGeminiExpert } from "./_geminiTextExpert";
+import { callClaudeExpert } from "./_claudeTextExpert";
+
+/**
+ * Which LLM the Oral Pathologist should use.
+ *   - "claude" (default) — Claude Opus 4.7 for deep, careful pathology reasoning
+ *   - "gemini"           — Gemini for cost reasons
+ * Falls back gracefully: claude → gemini → mock.
+ */
+const PROVIDER_PREFERENCE = (
+  process.env.EXPERT_PATHOLOGIST_PROVIDER ?? "claude"
+).toLowerCase() as "claude" | "gemini";
 
 export interface ExpertInput {
   vision: VisionResult;
@@ -66,7 +77,7 @@ const ACTIONS: ExpertRecommendation[] = [
 function coerce(
   raw: RawOpinion,
   fallback: VisionResult,
-  provider: "mock" | "gemini",
+  provider: "mock" | "gemini" | "claude",
   fellBack: boolean
 ): ExpertOpinion {
   const finding = (FINDINGS as string[]).includes(raw.visualFindingAssessment ?? "")
@@ -180,11 +191,30 @@ export async function runOralPathologistExpert(
     visionAgent: input.vision,
     questionnaire: input.questionnaire,
   });
+
+  // Try Claude first (default for pathologist — Opus 4.7 reasoning shines here)
+  if (PROVIDER_PREFERENCE === "claude") {
+    try {
+      const raw = await callClaudeExpert<RawOpinion>({
+        systemPrompt: SYSTEM_PROMPT,
+        userPayload,
+        temperature: 0.2,
+      });
+      return coerce(raw, input.vision, "claude", false);
+    } catch (err) {
+      // Fall through to Gemini retry, then mock.
+      console.warn(
+        "[pathologistExpert] Claude failed, falling back:",
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
   try {
     const raw = await callGeminiExpert<RawOpinion>({
       systemPrompt: SYSTEM_PROMPT,
       userPayload,
-      temperature: 0.2, // conservative
+      temperature: 0.2,
     });
     return coerce(raw, input.vision, "gemini", false);
   } catch {
