@@ -108,6 +108,59 @@ A **hierarchical multi-agent** design. The Orchestrator is the only agent that k
 
 ---
 
+## 🤖 Telegram Bot (bonus channel)
+
+The project also ships a fully-featured **Telegram bot** that reuses the
+same agentic pipeline. Patients can run a screening directly from their
+phone — no install needed — via chat with photo upload + inline-keyboard
+questionnaire.
+
+| | |
+|---|---|
+| **Live bot** | [t.me/Idporalbot](https://t.me/Idporalbot) |
+| **Source** | [`bot/bot.ts`](bot/bot.ts) |
+| **Languages** | English / Bahasa Malaysia (user picks at /start) |
+| **Mode** | Polling (no public URL needed; runs locally) |
+| **Conversation** | 1 photo + 9-question inline-button flow |
+| **Output** | Patient report (MarkdownV2) + agent-trace log + action buttons |
+
+### Run the bot
+
+```bash
+# 1. Create a bot with @BotFather on Telegram → get the token
+# 2. Add the token to .env.local:
+#      TELEGRAM_BOT_TOKEN=8123:AAEexxxxxxxx...
+#      TELEGRAM_BOT_PROVIDER=gemini   # or mock / claude / local
+# 3. Run:
+npm run bot
+```
+
+The bot uses the **same orchestrator agent** as the web app — same 10
+agents, same literature-grounded risk scoring, same disclaimers.
+
+### Bot conversation flow
+
+```
+/start
+  → Language picker (🇬🇧 EN / 🇲🇾 BM)
+  → Welcome with About / Start buttons
+  → 📸 "Send a photo of inside your mouth"
+  → ✅ Photo received
+  → 1️⃣ Age band (5 buttons)
+  → 2️⃣ Tobacco? (✅/❌)
+  → 3️⃣ Alcohol? (✅/❌)
+  → 4️⃣ Betel quid / pinang? (✅/❌)
+  → 5️⃣ Family history? (✅/❌)
+  → 6️⃣ Lesion duration band (4 buttons)
+  → 7️⃣ Pain? (✅/❌)
+  → 8️⃣ Bleeding? (✅/❌)
+  → 9️⃣ Ulcer? (✅/❌)
+  → ⏳ Pipeline progress (edits same message as each agent finishes)
+  → 📋 Result: risk band + score + visual finding + top drivers
+  → 🧠 Agent trace (technical demo view)
+  → [🔄 New screening] [🌐 Change language]
+```
+
 ## 📄 Methodology report
 
 A full academic methodology report — explaining every weight, citing the
