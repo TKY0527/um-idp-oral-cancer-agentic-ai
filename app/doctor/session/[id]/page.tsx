@@ -15,6 +15,8 @@ import { ProviderStatusBadge } from "@/components/ProviderStatusBadge";
 import { HeatmapOverlay } from "@/components/HeatmapOverlay";
 import { ConsensusPanel } from "@/components/ConsensusPanel";
 import { RetrievalPanel } from "@/components/RetrievalPanel";
+import { ExpertPanelCard } from "@/components/ExpertPanelCard";
+import { ModeratorVerdictCard } from "@/components/ModeratorVerdictCard";
 import {
   riskLevelColorClass,
   summarizeQuestionnaire,
@@ -105,6 +107,12 @@ export default function DoctorSessionDetailPage() {
           </div>
 
           {session.consensus && <ConsensusPanel consensus={session.consensus} />}
+          {session.panelDiscussion && session.panelDiscussion.triggered && (
+            <>
+              <ModeratorVerdictCard panel={session.panelDiscussion} />
+              <ExpertPanelCard panel={session.panelDiscussion} />
+            </>
+          )}
           {session.retrieval && session.retrieval.length > 0 && (
             <RetrievalPanel snippets={session.retrieval} />
           )}

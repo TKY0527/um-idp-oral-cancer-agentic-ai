@@ -15,6 +15,7 @@ import { runClinicianReferralAgent } from "@/lib/agents/clinicianReferralAgent";
 import { runTriagePrioritizationAgent } from "@/lib/agents/triagePrioritizationAgent";
 import { runRetrievalAgent } from "@/lib/agents/retrievalAgent";
 import { runConsensusAgent } from "@/lib/agents/consensusAgent";
+import { runMultiExpertPanel } from "@/lib/agents/multiExpertPanel";
 
 export interface OrchestratorInput {
   source: "sample" | "upload";
@@ -26,6 +27,13 @@ export interface OrchestratorInput {
   questionnaire: Questionnaire;
   preferredProvider: VisionProviderId;
   consensusProvider?: VisionProviderId;
+  /**
+   * Controls the multi-expert panel:
+   *   - "auto"  (default) — runs only when risk is Medium or High
+   *   - "always" — runs on every session
+   *   - "never" — never runs
+   */
+  expertPanelMode?: "auto" | "always" | "never";
   /** Optional per-step progress callback for SSE streaming. */
   onStep?: (event: { agent: string; status: "started" | "completed" | "skipped"; detail?: string }) => void;
 }
@@ -178,6 +186,59 @@ export async function runOrchestratorAgent(
   );
   emit({ agent: "RetrievalAgent", status: "completed", detail: retrieval[0]?.title });
 
+  // 3c. Multi-Expert Panel (auto-trigger on Medium/High risk by default).
+  // Three role-prompted experts (Oral Pathologist, Epidemiologist, General
+  // Dentist) deliberate in parallel; a deterministic Moderator synthesises
+  // the verdict and surfaces inter-expert disagreement.
+  const panelMode = input.expertPanelMode ?? "auto";
+  const shouldRunPanel =
+    panelMode === "always" ||
+    (panelMode === "auto" &&
+      (risk.riskLevel === "Medium" || risk.riskLevel === "High"));
+
+  let panelDiscussion: ScreeningSession["panelDiscussion"] = undefined;
+  if (shouldRunPanel) {
+    const triggerReason =
+      panelMode === "always"
+        ? "Panel mode forced to 'always'."
+        : `Auto-triggered because risk band is ${risk.riskLevel} (panel runs on Medium/High).`;
+    emit({ agent: "MultiExpertPanel", status: "started", detail: triggerReason });
+    logEvent("MultiExpertPanel", "called", triggerReason);
+    try {
+      panelDiscussion = await runMultiExpertPanel({
+        vision: visionRes.vision,
+        questionnaire: input.questionnaire,
+        ruleBasedRiskLevel: risk.riskLevel,
+        triggerReason,
+      });
+      logEvent(
+        "MultiExpertPanel",
+        "completed",
+        `consensus=${panelDiscussion.consensus} (${(panelDiscussion.agreementScore * 100).toFixed(0)}%), escalation=${panelDiscussion.escalation}`
+      );
+      emit({
+        agent: "MultiExpertPanel",
+        status: "completed",
+        detail: `${panelDiscussion.consensus} · ${panelDiscussion.escalation}`,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown";
+      logEvent("MultiExpertPanel", "failed", msg);
+      emit({ agent: "MultiExpertPanel", status: "skipped", detail: msg });
+    }
+  } else {
+    emit({
+      agent: "MultiExpertPanel",
+      status: "skipped",
+      detail: `Risk band is ${risk.riskLevel} — panel not required under 'auto' mode`,
+    });
+    logEvent(
+      "MultiExpertPanel",
+      "skipped",
+      `Risk band is ${risk.riskLevel} under mode=${panelMode}`
+    );
+  }
+
   // 4. Patient Communication Agent
   emit({ agent: "PatientCommunicationAgent", status: "started" });
   logEvent("PatientCommunicationAgent", "called", "Generating patient-friendly report");
@@ -257,5 +318,6 @@ export async function runOrchestratorAgent(
     consensus,
     triage,
     retrieval,
+    panelDiscussion,
   };
 }

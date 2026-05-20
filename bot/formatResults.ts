@@ -70,6 +70,37 @@ export function formatResult(
   lines.push(mdEsc(session.patientReport.nextStep));
   lines.push("");
 
+  // Multi-Expert Panel verdict (only when triggered)
+  if (session.panelDiscussion && session.panelDiscussion.triggered) {
+    const p = session.panelDiscussion;
+    lines.push("");
+    lines.push(mdEsc(t("panelHeader", lang)));
+    const consensusKey =
+      p.consensus === "agreement"
+        ? "panelConsensusAgreement"
+        : p.consensus === "majority"
+          ? "panelConsensusMajority"
+          : "panelConsensusSplit";
+    lines.push(
+      mdEsc(
+        `${t(consensusKey, lang)} · ${(p.agreementScore * 100).toFixed(0)}%`
+      )
+    );
+    for (const o of p.opinions) {
+      const action = o.recommendedAction.replace(/_/g, " ");
+      lines.push(`• *${mdEsc(o.label)}*: ${mdEsc(action)}`);
+    }
+    const escKey =
+      p.escalation === "escalate"
+        ? "panelEscalate"
+        : p.escalation === "downgrade"
+          ? "panelDowngrade"
+          : "panelKeep";
+    lines.push("");
+    lines.push(mdEsc(t(escKey, lang)));
+    lines.push("");
+  }
+
   // Disclaimer
   lines.push(mdEsc(t("disclaimer", lang)));
 

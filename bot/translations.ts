@@ -156,6 +156,30 @@ export const STRINGS: Strings = {
   },
   newScreening: { en: "🔄 New screening", bm: "🔄 Saringan baru" },
 
+  // ── Multi-Expert Panel ───────────────────────────────────────────────
+  panelHeader: {
+    en: "🧑‍⚕️ *Multi-Expert Panel Verdict*",
+    bm: "🧑‍⚕️ *Keputusan Panel Pakar*",
+  },
+  panelConsensusAgreement: {
+    en: "Strong agreement",
+    bm: "Persetujuan kuat",
+  },
+  panelConsensusMajority: { en: "Majority view", bm: "Pandangan majoriti" },
+  panelConsensusSplit: { en: "Panel split", bm: "Panel berbelah bahagi" },
+  panelEscalate: {
+    en: "⬆️ Escalation suggested — panel calls for urgent specialist review",
+    bm: "⬆️ Naik taraf disyorkan — panel mahukan semakan pakar segera",
+  },
+  panelKeep: {
+    en: "≈ Panel aligned with the rule-based risk band",
+    bm: "≈ Panel sejajar dengan band risiko",
+  },
+  panelDowngrade: {
+    en: "⬇️ Panel suggests the risk band may be over-stated",
+    bm: "⬇️ Panel mencadangkan band risiko mungkin terlalu tinggi",
+  },
+
   // ── Cancel / errors ─────────────────────────────────────────────────
   cancelled: {
     en: "Cancelled. Send /start to begin again.",

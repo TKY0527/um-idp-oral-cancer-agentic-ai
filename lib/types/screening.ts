@@ -163,6 +163,8 @@ export interface ScreeningSession {
   retrieval?: RetrievalSnippet[];
   /** Optional: doctor's notes/actions (set in /doctor). */
   clinicianReview?: ClinicianReview;
+  /** Optional: multi-expert panel deliberation (auto-triggered on Medium/High risk). */
+  panelDiscussion?: PanelDiscussion;
 }
 
 export interface ClinicianReview {
@@ -170,6 +172,52 @@ export interface ClinicianReview {
   reviewerName: string;
   decision: "agree" | "downgrade" | "upgrade" | "refer_specialist";
   notes: string;
+}
+
+// ─── Multi-Expert Panel (role-prompted ensemble debate) ──────────────────────
+
+export type ExpertRole =
+  | "oral_pathologist"
+  | "epidemiologist"
+  | "general_dentist";
+
+export type ExpertRecommendation =
+  | "biopsy_indicated"
+  | "urgent_referral"
+  | "monitor_2_weeks"
+  | "watchful_wait"
+  | "reassure";
+
+export interface ExpertOpinion {
+  expertRole: ExpertRole;
+  label: string; // human-readable name shown in UI
+  provider: VisionProviderId | "mock"; // which LLM produced this opinion
+  visualFindingAssessment: VisualFinding;
+  probabilityEstimate: number; // 0..1
+  confidence: number; // 0..1
+  keyConcerns: string[];
+  recommendedAction: ExpertRecommendation;
+  reasoning: string;
+  questionsToAsk: string[];
+  /** Did this expert run via real LLM or fall back to mock? */
+  fellBackToMock: boolean;
+}
+
+export interface PanelDiscussion {
+  triggered: boolean;
+  /** Why the panel was (or wasn't) triggered. */
+  triggerReason: string;
+  opinions: ExpertOpinion[];
+  consensus: "agreement" | "majority" | "split";
+  agreementScore: number; // 0..1
+  finalFinding: VisualFinding;
+  finalProbability: number; // 0..1
+  majorityVote: Record<string, number>;
+  dissent: string;
+  panelDiscussion: string;
+  synthesizedRecommendation: string;
+  /** Suggested adjustment vs the rule-based risk band. */
+  escalation: "escalate" | "keep" | "downgrade";
 }
 
 export interface ScreeningRequestBody {

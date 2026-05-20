@@ -18,6 +18,8 @@ import { AgentFlowOverlay } from "@/components/AgentFlowOverlay";
 import { HeatmapOverlay } from "@/components/HeatmapOverlay";
 import { ConsensusPanel } from "@/components/ConsensusPanel";
 import { RetrievalPanel } from "@/components/RetrievalPanel";
+import { ExpertPanelCard } from "@/components/ExpertPanelCard";
+import { ModeratorVerdictCard } from "@/components/ModeratorVerdictCard";
 import { getSampleCase } from "@/lib/data/sampleCases";
 import { sessionStore } from "@/lib/store/sessionStore";
 import type {
@@ -387,6 +389,16 @@ export default function PatientScreeningPage() {
           {session.consensus && (
             <div className="mt-4">
               <ConsensusPanel consensus={session.consensus} />
+            </div>
+          )}
+
+          {session.panelDiscussion && session.panelDiscussion.triggered && (
+            <div className="mt-4 space-y-4">
+              <ModeratorVerdictCard panel={session.panelDiscussion} />
+              <ExpertPanelCard
+                panel={session.panelDiscussion}
+                patientMode
+              />
             </div>
           )}
 
