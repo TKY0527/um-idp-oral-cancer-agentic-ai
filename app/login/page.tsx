@@ -8,6 +8,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 const QUICK = [
   { username: "patient1", password: "patient1", label: "Patient One", emoji: "🧑", role: "patient" },
   { username: "patient2", password: "patient2", label: "Patient Two", emoji: "👩", role: "patient" },
+  { username: "test1", password: "test1", label: "Test User", emoji: "🧪", role: "patient" },
   { username: "doctor", password: "doctor", label: "Dr. Lim", emoji: "🩺", role: "doctor" },
 ];
 
@@ -60,7 +61,7 @@ function LoginInner() {
           <p className="text-xs font-semibold uppercase tracking-wide text-lavender-700">
             {t("login.quick")}
           </p>
-          <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {QUICK.map((q) => (
               <button
                 key={q.username}

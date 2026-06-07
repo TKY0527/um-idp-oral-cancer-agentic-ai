@@ -49,6 +49,13 @@ export const SEED_USERS: SeededUser[] = [
     role: "doctor",
     displayName: "Dr. Lim (Oral Medicine)",
   },
+  // Shared teammate test account (patient role).
+  {
+    username: "test1",
+    password: process.env.SEED_TEST1_PASSWORD ?? "test1",
+    role: "patient",
+    displayName: "Test User",
+  },
 ];
 
 export function findSeededUser(username: string): SeededUser | undefined {
