@@ -21,6 +21,12 @@ export default function LandingPage() {
               University IDP · Agentic AI Prototype
             </p>
           </div>
+          <Link
+            href="/login"
+            className="ml-auto rounded-xl bg-lavender-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-lavender-800"
+          >
+            Sign in →
+          </Link>
         </div>
 
         {/* Hero */}

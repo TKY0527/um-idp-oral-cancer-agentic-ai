@@ -8,6 +8,7 @@ export const metadata: Metadata = {
 
 const DOCTOR_NAV = [
   { href: "/doctor", label: "Triage Queue", icon: "📥" },
+  { href: "/doctor/patients", label: "Patients", icon: "👥" },
   { href: "/doctor/analytics", label: "Analytics", icon: "📊" },
 ];
 

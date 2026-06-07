@@ -12,7 +12,7 @@ type SortMode = "urgency" | "newest" | "risk";
 type FilterMode = "all" | "high" | "medium" | "low" | "unreviewed";
 
 export default function DoctorQueuePage() {
-  const sessions = useSessionStore();
+  const sessions = useSessionStore(10000); // live: re-pull every 10s
   const [sortMode, setSortMode] = useState<SortMode>("urgency");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
 
@@ -191,8 +191,12 @@ export default function DoctorQueuePage() {
                   )}
                 </div>
                 <p className="mt-1 text-[11px] text-lavender-700">
-                  {new Date(s.finishedAt).toLocaleString()} · age {s.questionnaire.age} ·
-                  score {s.risk.score}/100
+                  <span className="font-medium text-lavender-900">
+                    {s.channel === "telegram" ? "📲 " : "🧑 "}
+                    {s.ownerLabel ?? "Unknown patient"}
+                  </span>{" "}
+                  · {new Date(s.finishedAt).toLocaleString()} · age{" "}
+                  {s.questionnaire.age} · score {s.risk.score}/100
                   {s.triage && (
                     <> · urgency {s.triage.urgencyScore} (SLA {s.triage.recommendedSlaHours}h)</>
                   )}

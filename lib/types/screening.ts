@@ -165,6 +165,20 @@ export interface ScreeningSession {
   clinicianReview?: ClinicianReview;
   /** Optional: multi-expert panel deliberation (auto-triggered on Medium/High risk). */
   panelDiscussion?: PanelDiscussion;
+  /** Optional: which account/channel this screening belongs to (multi-user mode). */
+  ownerId?: string;
+  ownerLabel?: string;
+  channel?: "web" | "telegram";
+}
+
+/** A doctor↔patient message in a care thread. */
+export interface CareMessage {
+  id: string;
+  patientId: string;
+  from: "patient" | "doctor";
+  fromLabel: string;
+  text: string;
+  timestamp: string;
 }
 
 export interface ClinicianReview {

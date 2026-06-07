@@ -17,6 +17,7 @@ import { ConsensusPanel } from "@/components/ConsensusPanel";
 import { RetrievalPanel } from "@/components/RetrievalPanel";
 import { ExpertPanelCard } from "@/components/ExpertPanelCard";
 import { ModeratorVerdictCard } from "@/components/ModeratorVerdictCard";
+import { CareChat } from "@/components/CareChat";
 import {
   riskLevelColorClass,
   summarizeQuestionnaire,
@@ -231,6 +232,29 @@ export default function DoctorSessionDetailPage() {
                 </p>
               )}
             </div>
+
+            {/* Patient identity + direct messaging */}
+            <div className="rounded-2xl border border-lavender-200 bg-white p-4 shadow-card">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-lavender-700">
+                Patient
+              </p>
+              <p className="mt-1 text-sm font-semibold text-lavender-950">
+                {session.channel === "telegram" ? "📲 " : "🧑 "}
+                {session.ownerLabel ?? "Unknown"}
+              </p>
+              <p className="text-[11px] text-lavender-600">
+                via {session.channel ?? "web"}
+              </p>
+            </div>
+
+            {session.ownerId && (
+              <CareChat
+                viewerRole="doctor"
+                patientId={session.ownerId}
+                title={`Message ${session.ownerLabel ?? "patient"}`}
+                heightClass="h-64"
+              />
+            )}
           </div>
         </aside>
       </div>

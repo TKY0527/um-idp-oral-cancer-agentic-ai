@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { UserMenu } from "@/components/UserMenu";
 
 const NAV = [
   { href: "/patient", label: "Overview", icon: "🏠" },
   { href: "/patient/screening", label: "New Screening", icon: "🔬" },
   { href: "/patient/history", label: "History", icon: "📅" },
   { href: "/patient/chat", label: "AI Assistant", icon: "💬" },
+  { href: "/patient/messages", label: "Message Doctor", icon: "✉️" },
 ];
 
 export function PatientSidebar() {
@@ -52,24 +54,8 @@ export function PatientSidebar() {
         })}
       </nav>
 
-      <div className="mt-auto rounded-xl border border-lavender-200 bg-lavender-50/70 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-lavender-700">
-          Switch role
-        </p>
-        <div className="mt-2 flex gap-2">
-          <Link
-            href="/doctor"
-            className="flex-1 rounded-lg border border-lavender-300 bg-white px-2 py-1.5 text-center text-xs font-medium text-lavender-800 hover:bg-lavender-100"
-          >
-            🩺 Doctor
-          </Link>
-          <Link
-            href="/"
-            className="rounded-lg border border-lavender-300 bg-white px-2 py-1.5 text-center text-xs font-medium text-lavender-800 hover:bg-lavender-100"
-          >
-            🏠
-          </Link>
-        </div>
+      <div className="mt-auto">
+        <UserMenu />
       </div>
     </aside>
   );

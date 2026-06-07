@@ -48,6 +48,80 @@ All wrapped in an animated, network-graph **live pipeline overlay** that shows e
 
 ---
 
+## 🔐 Accounts & multi-user mode
+
+The app has **login + role-based access** with a shared cloud datastore, so a
+clinician sees screenings from every patient and every channel (web + Telegram)
+on any device.
+
+| Account | Password | Role | Sees |
+|---------|----------|------|------|
+| `patient1` | `patient1` | Patient | Only their own screenings & messages |
+| `patient2` | `patient2` | Patient | Only their own screenings & messages |
+| `doctor` | `doctor` | Doctor | **All** patients' screenings + can message each patient |
+
+> One-tap demo login buttons are on `/login`. Passwords are seeded for the
+> prototype (override via `SEED_*` env vars). This is demo-grade auth — signed
+> HMAC cookies, not a production identity system.
+
+**How data is shared:** screenings + care messages are stored in **Vercel KV /
+Upstash Redis** (`lib/server/repository.ts`). Sessions are scoped by the signed
+session cookie — patients get their own, the doctor gets everyone's. Without KV
+configured (e.g. pure local dev) it falls back to an in-memory store.
+
+Doctor-only pages:
+- `/doctor` — live triage queue (auto-refreshes every 10 s), labelled by patient & channel
+- `/doctor/patients` — every patient grouped, full track record + direct chat
+- `/doctor/session/[id]` — full review + message that patient
+- `/doctor/analytics` — cohort analytics
+
+---
+
+## ☁️ Deploy to Vercel (with shared storage)
+
+1. **Push to GitHub** (already done if you cloned this repo).
+2. On <https://vercel.com> → **Add New → Project** → import the repo.
+3. **Add storage:** Project → **Storage** tab → **Create / Connect** → choose
+   **Upstash (Redis)** or **KV**. Vercel injects `KV_REST_API_URL` +
+   `KV_REST_API_TOKEN` automatically.
+4. **Environment Variables** (Project → Settings → Environment Variables):
+   | Variable | Value |
+   |----------|-------|
+   | `AUTH_SECRET` | any long random string |
+   | `GEMINI_API_KEY` | your Gemini key |
+   | `GEMINI_MODEL` | `gemini-3.5-flash` |
+   | `ANTHROPIC_API_KEY` | your Claude key (optional) |
+   | `CLAUDE_MODEL` | `claude-opus-4-7` |
+   | `TELEGRAM_BOT_TOKEN` | from @BotFather (optional) |
+   | `TELEGRAM_BOT_PROVIDER` | `gemini` |
+   | `TELEGRAM_WEBHOOK_SECRET` | any random string |
+   | `PUBLIC_BASE_URL` | your `https://<app>.vercel.app` (after first deploy) |
+5. **Deploy.** Every `git push` redeploys automatically.
+
+---
+
+## 📲 Telegram on Vercel (webhook mode)
+
+Locally the bot uses long-polling (`npm run bot`). On Vercel it must use a
+**webhook** (serverless can't long-poll). Both share the same conversation
+handler (`lib/telegram/handler.ts`) so behaviour is identical.
+
+After deploying, register the webhook once:
+
+```bash
+# Set PUBLIC_BASE_URL + TELEGRAM_WEBHOOK_SECRET in .env.local, then:
+npm run bot:webhook:set      # points Telegram at /api/telegram/webhook
+# To go back to local polling:
+npm run bot:webhook:delete && npm run bot
+```
+
+**Photo flow:** a user sends a mouth photo → the webhook downloads it →
+the full agentic pipeline runs → a bilingual report + agent trace is returned
+to the chat → the screening is also saved to the shared store so the **doctor
+dashboard shows it** (labelled "Telegram: <name>").
+
+---
+
 ## 🖼️ Sample cases
 
 The app ships with 4 deterministic demo cases. Click one and the full pipeline runs without an API call.

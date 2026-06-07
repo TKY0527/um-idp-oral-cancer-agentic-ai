@@ -5,6 +5,7 @@ import type {
 import { runOrchestratorAgent } from "@/lib/agents/orchestratorAgent";
 import { getSampleCase } from "@/lib/data/sampleCases";
 import { loadEnvLocal } from "@/lib/utils/loadEnvLocal";
+import { getCurrentUser } from "@/lib/server/identity";
 
 loadEnvLocal();
 
@@ -32,6 +33,15 @@ function resolveProvider(p?: VisionProviderId): VisionProviderId {
  *   data: {"agent":"ToothbrushIoTAgent","detail":"..."}
  */
 export async function POST(req: Request) {
+  // Auth: streaming pipeline triggers paid LLM calls — require a logged-in user.
+  const user = await getCurrentUser();
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Not authenticated" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   let body: ScreeningRequestBody;
   try {
     body = (await req.json()) as ScreeningRequestBody;

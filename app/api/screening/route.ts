@@ -6,6 +6,7 @@ import type {
 import { runOrchestratorAgent } from "@/lib/agents/orchestratorAgent";
 import { getSampleCase } from "@/lib/data/sampleCases";
 import { loadEnvLocal } from "@/lib/utils/loadEnvLocal";
+import { getCurrentUser } from "@/lib/server/identity";
 
 // Force-load .env.local on first import so OS-level env vars (e.g. an expired
 // GEMINI_API_KEY left over in the user's Windows environment) cannot override
@@ -25,6 +26,12 @@ function resolveProvider(requested?: VisionProviderId): VisionProviderId {
 }
 
 export async function POST(req: Request) {
+  // Auth: the pipeline triggers paid LLM calls — require a logged-in user.
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
   let body: ScreeningRequestBody;
   try {
     body = (await req.json()) as ScreeningRequestBody;

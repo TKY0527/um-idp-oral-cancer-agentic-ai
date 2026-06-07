@@ -3,31 +3,39 @@
 import type { ScreeningSession, ClinicianReview } from "@/lib/types/screening";
 
 /**
- * Local-first session store.
+ * Server-backed session store with a synchronous in-memory cache.
  *
- * Persists every screening session to localStorage so:
- *  - Patient can see longitudinal history across reloads
- *  - Doctor queue survives page refreshes
- *  - No backend / database needed for the prototype
- *
- * Wraps the raw storage with a pub-sub so React components can re-render
- * when sessions are added or reviewed.
+ * - When the user is logged in, the source of truth is the server
+ *   (GET /api/sessions, scoped by role: patient → own, doctor → all).
+ * - localStorage is kept as an offline fallback + fast first paint.
+ * - The public API stays SYNCHRONOUS (getAll/getById/add/...) so existing
+ *   page components need zero changes; `hydrate()` refreshes from the server
+ *   and notifies subscribers when data arrives.
  */
 
 const STORAGE_KEY = "oralscan_sessions_v2";
-/** Hard cap on persisted size — roughly 60 % of typical 5 MB quota. */
 const MAX_BYTES = 3 * 1024 * 1024;
-/** Max age (ms) for keeping the full data URL preview — older sessions drop the image. */
 const PREVIEW_RETAIN_MS = 7 * 24 * 60 * 60 * 1000;
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
 
+let cache: ScreeningSession[] | null = null;
+let serverBacked = false;
+let lastHydrate = 0;
+/**
+ * Session ids that were added optimistically on this client and may not yet be
+ * persisted on the server. We preserve these across a hydrate() replace so a
+ * server response that lands before our POST does not erase the just-added
+ * session.
+ */
+const pendingLocal = new Set<string>();
+
 function notify() {
   for (const l of listeners) l();
 }
 
-function safeRead(): ScreeningSession[] {
+function readLocal(): ScreeningSession[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -39,34 +47,24 @@ function safeRead(): ScreeningSession[] {
   }
 }
 
-/**
- * Image-aware trimming strategy:
- *  1. Drop preview images on sessions older than PREVIEW_RETAIN_MS.
- *  2. Drop preview images from oldest sessions first.
- *  3. If still too big, drop the oldest sessions entirely.
- */
 function trimToFit(sessions: ScreeningSession[]): ScreeningSession[] {
   const now = Date.now();
   let working = sessions.map((s) => {
     if (
-      s.imageMeta.previewDataUrl &&
+      s.imageMeta?.previewDataUrl &&
       now - new Date(s.finishedAt).getTime() > PREVIEW_RETAIN_MS
     ) {
       return { ...s, imageMeta: { ...s.imageMeta, previewDataUrl: undefined } };
     }
     return s;
   });
-
-  // newest first for prioritization
   working = [...working].sort(
     (a, b) =>
       new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
   );
-
-  // Step 2: progressively strip previews from oldest until under cap.
   let serialized = JSON.stringify(working);
   for (let i = working.length - 1; i >= 0 && serialized.length > MAX_BYTES; i--) {
-    if (working[i].imageMeta.previewDataUrl) {
+    if (working[i].imageMeta?.previewDataUrl) {
       working[i] = {
         ...working[i],
         imageMeta: { ...working[i].imageMeta, previewDataUrl: undefined },
@@ -74,23 +72,19 @@ function trimToFit(sessions: ScreeningSession[]): ScreeningSession[] {
       serialized = JSON.stringify(working);
     }
   }
-
-  // Step 3: drop oldest sessions entirely if still too big.
   while (working.length > 0 && serialized.length > MAX_BYTES) {
     working.pop();
     serialized = JSON.stringify(working);
   }
-
   return working;
 }
 
-function safeWrite(sessions: ScreeningSession[]): void {
+function writeLocal(sessions: ScreeningSession[]): void {
   if (typeof window === "undefined") return;
   const trimmed = trimToFit(sessions);
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
   } catch {
-    // Last-resort: drop ALL previews and try again.
     try {
       const noPreviews = trimmed.map((s) => ({
         ...s,
@@ -98,44 +92,120 @@ function safeWrite(sessions: ScreeningSession[]): void {
       }));
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(noPreviews));
     } catch {
-      // give up — but at least notify subscribers so UI updates.
+      /* give up */
     }
   }
+}
+
+function ensureCache(): ScreeningSession[] {
+  if (cache === null) cache = readLocal();
+  return cache;
+}
+
+/** Replace cache, persist locally, notify subscribers. */
+function commit(next: ScreeningSession[]): void {
+  cache = next;
+  writeLocal(next);
   notify();
 }
 
 export const sessionStore = {
+  /** Pull the authoritative list from the server (no-op if not logged in). */
+  async hydrate(force = false): Promise<void> {
+    if (typeof window === "undefined") return;
+    if (!force && Date.now() - lastHydrate < 1500) return; // debounce
+    lastHydrate = Date.now();
+    try {
+      const res = await fetch("/api/sessions", { cache: "no-store" });
+      if (res.status === 401) {
+        // Anonymous — keep whatever is local.
+        serverBacked = false;
+        if (cache === null) {
+          cache = readLocal();
+          notify();
+        }
+        return;
+      }
+      if (!res.ok) return;
+      const data = (await res.json()) as { sessions?: ScreeningSession[] };
+      if (Array.isArray(data.sessions)) {
+        serverBacked = true;
+        const serverIds = new Set(data.sessions.map((s) => s.sessionId));
+        // Any pending local add that the server already has → no longer pending.
+        for (const id of pendingLocal) {
+          if (serverIds.has(id)) pendingLocal.delete(id);
+        }
+        // Preserve optimistic local adds the server hasn't caught up on yet.
+        const localOnly = (cache ?? []).filter(
+          (s) => pendingLocal.has(s.sessionId) && !serverIds.has(s.sessionId)
+        );
+        commit([...localOnly, ...data.sessions]);
+      }
+    } catch {
+      // Offline — fall back to local cache.
+      if (cache === null) {
+        cache = readLocal();
+        notify();
+      }
+    }
+  },
+
+  isServerBacked(): boolean {
+    return serverBacked;
+  },
+
   getAll(): ScreeningSession[] {
-    return safeRead().sort(
-      (a, b) =>
-        new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
-    );
+    return ensureCache()
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
+      );
   },
 
   getById(id: string): ScreeningSession | undefined {
-    return safeRead().find((s) => s.sessionId === id);
+    return ensureCache().find((s) => s.sessionId === id);
   },
 
   add(session: ScreeningSession): void {
-    const all = safeRead();
+    const all = ensureCache();
     const without = all.filter((s) => s.sessionId !== session.sessionId);
-    safeWrite([session, ...without]);
+    commit([session, ...without]);
+    // Mark as pending until the server confirms it (protects against a
+    // concurrent hydrate() replacing the cache before the POST lands).
+    pendingLocal.add(session.sessionId);
+    void fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session }),
+    })
+      .then((r) => {
+        if (r.ok) {
+          // Give the server a beat, then re-pull so doctor/other views sync.
+          setTimeout(() => void sessionStore.hydrate(true), 400);
+        }
+      })
+      .catch(() => undefined);
   },
 
   remove(id: string): void {
-    safeWrite(safeRead().filter((s) => s.sessionId !== id));
+    commit(ensureCache().filter((s) => s.sessionId !== id));
   },
 
   clear(): void {
-    safeWrite([]);
+    commit([]);
   },
 
   setClinicianReview(id: string, review: ClinicianReview): void {
-    const all = safeRead();
-    const next = all.map((s) =>
+    const next = ensureCache().map((s) =>
       s.sessionId === id ? { ...s, clinicianReview: review } : s
     );
-    safeWrite(next);
+    commit(next);
+    void fetch(`/api/sessions/${id}/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ review }),
+    }).catch(() => undefined);
   },
 
   subscribe(fn: Listener): () => void {

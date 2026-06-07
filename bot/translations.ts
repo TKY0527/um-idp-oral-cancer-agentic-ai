@@ -40,14 +40,14 @@ export const STRINGS: Strings = {
       "• 10 specialised AI agents (Orchestrator + Toothbrush IoT + Vision + Risk Scoring + Patient + Clinician + Consensus + RAG + Triage + Chat)\n" +
       "• Risk weights calibrated from IARC monographs, INHANCE consortium, NCCN guidelines (see GitHub for full methodology)\n" +
       "• Uses Gemini Vision API for image analysis\n" +
-      "• All sessions are local — nothing is stored on a server\n\n" +
+      "• Your screening is shared with the reviewing clinician's dashboard\n\n" +
       "GitHub: github.com/TKY0527/um-idp-oral-cancer-agentic-ai",
     bm:
       "*OralScan AI* ialah prototaip IDP universiti:\n\n" +
       "• 10 ejen AI khusus (Orchestrator + Toothbrush IoT + Vision + Risk Scoring + Patient + Clinician + Consensus + RAG + Triage + Chat)\n" +
       "• Pemberat risiko ditentukur dari monograf IARC, konsortium INHANCE, garis panduan NCCN (lihat GitHub untuk metodologi penuh)\n" +
       "• Menggunakan Gemini Vision API untuk analisis imej\n" +
-      "• Semua sesi disimpan secara setempat — tiada apa-apa disimpan di pelayan\n\n" +
+      "• Saringan anda dikongsi dengan papan pemuka doktor yang menyemak\n\n" +
       "GitHub: github.com/TKY0527/um-idp-oral-cancer-agentic-ai",
   },
 

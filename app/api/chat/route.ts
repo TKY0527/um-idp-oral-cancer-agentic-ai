@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { ChatRequestBody } from "@/lib/types/screening";
 import { runChatAgent } from "@/lib/agents/chatAgent";
 import { loadEnvLocal } from "@/lib/utils/loadEnvLocal";
+import { getCurrentUser } from "@/lib/server/identity";
 
 loadEnvLocal();
 
@@ -9,6 +10,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  // Auth: chat handles patient health context — require a logged-in user.
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
   let body: ChatRequestBody;
   try {
     body = (await req.json()) as ChatRequestBody;

@@ -11,6 +11,7 @@ const PATIENT_NAV = [
   { href: "/patient/screening", label: "New Screening", icon: "🔬" },
   { href: "/patient/history", label: "History", icon: "📅" },
   { href: "/patient/chat", label: "AI Assistant", icon: "💬" },
+  { href: "/patient/messages", label: "Message Doctor", icon: "✉️" },
 ];
 
 export default function PatientLayout({
