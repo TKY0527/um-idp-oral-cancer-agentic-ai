@@ -21,8 +21,12 @@ next-env.d.ts
 Thumbs.db
 
 # Training (data and trained weights are NOT committed)
-data/
-models/
+# NOTE: anchored to repo root with a leading slash so these do NOT match
+# source dirs like lib/data/ (which contains sampleCases.ts).
+/data/
+/models/
+/training/data/
+/training/models/
 *.pth
 *.pt
 *.onnx
