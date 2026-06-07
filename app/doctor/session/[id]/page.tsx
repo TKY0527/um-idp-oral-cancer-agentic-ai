@@ -18,6 +18,7 @@ import { RetrievalPanel } from "@/components/RetrievalPanel";
 import { ExpertPanelCard } from "@/components/ExpertPanelCard";
 import { ModeratorVerdictCard } from "@/components/ModeratorVerdictCard";
 import { CareChat } from "@/components/CareChat";
+import { DentalWellnessCard } from "@/components/DentalWellnessCard";
 import {
   riskLevelColorClass,
   summarizeQuestionnaire,
@@ -107,6 +108,9 @@ export default function DoctorSessionDetailPage() {
             <RiskScoreCard risk={session.risk} />
           </div>
 
+          {session.dentalWellness && (
+            <DentalWellnessCard dental={session.dentalWellness} />
+          )}
           {session.consensus && <ConsensusPanel consensus={session.consensus} />}
           {session.panelDiscussion && session.panelDiscussion.triggered && (
             <>

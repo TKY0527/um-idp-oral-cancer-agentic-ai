@@ -20,6 +20,7 @@ import { ConsensusPanel } from "@/components/ConsensusPanel";
 import { RetrievalPanel } from "@/components/RetrievalPanel";
 import { ExpertPanelCard } from "@/components/ExpertPanelCard";
 import { ModeratorVerdictCard } from "@/components/ModeratorVerdictCard";
+import { DentalWellnessCard } from "@/components/DentalWellnessCard";
 import { getSampleCase } from "@/lib/data/sampleCases";
 import { sessionStore } from "@/lib/store/sessionStore";
 import type {
@@ -408,6 +409,12 @@ export default function PatientScreeningPage() {
               riskLevel={session.risk.riskLevel}
             />
           </div>
+
+          {session.dentalWellness && (
+            <div className="mt-4">
+              <DentalWellnessCard dental={session.dentalWellness} />
+            </div>
+          )}
 
           {session.retrieval && session.retrieval.length > 0 && (
             <div className="mt-4">

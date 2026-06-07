@@ -16,6 +16,7 @@ import { runTriagePrioritizationAgent } from "@/lib/agents/triagePrioritizationA
 import { runRetrievalAgent } from "@/lib/agents/retrievalAgent";
 import { runConsensusAgent } from "@/lib/agents/consensusAgent";
 import { runMultiExpertPanel } from "@/lib/agents/multiExpertPanel";
+import { runDentalWellnessAgent } from "@/lib/agents/dentalWellnessAgent";
 
 export interface OrchestratorInput {
   source: "sample" | "upload";
@@ -291,6 +292,26 @@ export async function runOrchestratorAgent(
   );
   emit({ agent: "TriagePrioritizationAgent", status: "completed", detail: `urgency=${triage.urgencyScore}` });
 
+  // Dental Wellness Agent — multi-condition educational assessment (cavities,
+  // gum, hygiene) that runs alongside the cancer screening.
+  emit({ agent: "DentalWellnessAgent", status: "started" });
+  logEvent("DentalWellnessAgent", "called", "Estimating cavity / gum / hygiene");
+  const dentalWellness = await runDentalWellnessAgent({
+    vision: visionRes.vision,
+    questionnaire: input.questionnaire,
+    toothbrush,
+  });
+  logEvent(
+    "DentalWellnessAgent",
+    "completed",
+    `hygiene=${dentalWellness.hygieneScore}, cavity=${dentalWellness.cavityRisk}, gum=${dentalWellness.gumCondition}`
+  );
+  emit({
+    agent: "DentalWellnessAgent",
+    status: "completed",
+    detail: `hygiene ${dentalWellness.hygieneScore}/100`,
+  });
+
   const finishedAt = nowISO();
   logEvent("Orchestrator", "session_completed", `Finished at ${finishedAt}`);
   emit({ agent: "Orchestrator", status: "completed", detail: finishedAt });
@@ -319,5 +340,6 @@ export async function runOrchestratorAgent(
     triage,
     retrieval,
     panelDiscussion,
+    dentalWellness,
   };
 }

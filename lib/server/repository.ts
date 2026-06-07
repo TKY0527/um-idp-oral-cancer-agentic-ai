@@ -5,7 +5,12 @@ import {
   kvListPushUnique,
   kvListRange,
 } from "@/lib/server/kv";
-import type { CareMessage, ClinicianReview, ScreeningSession } from "@/lib/types/screening";
+import type {
+  CareMessage,
+  ClinicianReview,
+  PatientDocument,
+  ScreeningSession,
+} from "@/lib/types/screening";
 
 /**
  * Data-access layer over the KV store.
@@ -155,6 +160,25 @@ export async function listMessages(
   }
   // Stored newest-first; return chronological.
   return msgs.reverse();
+}
+
+// ── Patient documents (uploaded reports) ─────────────────────────────────────
+
+export async function addDocument(doc: PatientDocument): Promise<void> {
+  await kvSet(`doc:${doc.id}`, doc);
+  await kvListPushUnique(`patient:${doc.patientId}:docs`, doc.id);
+}
+
+export async function listDocuments(
+  patientId: string
+): Promise<PatientDocument[]> {
+  const ids = await kvListRange(`patient:${patientId}:docs`, 0, 50);
+  const out: PatientDocument[] = [];
+  for (const id of ids) {
+    const d = await kvGet<PatientDocument>(`doc:${id}`);
+    if (d) out.push(d);
+  }
+  return out;
 }
 
 // ── Telegram links ───────────────────────────────────────────────────────────

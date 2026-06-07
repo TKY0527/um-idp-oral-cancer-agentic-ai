@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSessionStore } from "@/lib/store/useSessionStore";
 import { CareChat } from "@/components/CareChat";
 import { riskLevelColorClass } from "@/lib/utils/riskUtils";
-import type { ScreeningSession } from "@/lib/types/screening";
+import type { PatientDocument, ScreeningSession } from "@/lib/types/screening";
 
 interface PatientGroup {
   ownerId: string;
@@ -48,6 +48,16 @@ export default function DoctorPatientsPage() {
   }, [sessions]);
 
   const active = groups.find((g) => g.ownerId === selected) ?? null;
+
+  const [docs, setDocs] = useState<PatientDocument[]>([]);
+  useEffect(() => {
+    setDocs([]);
+    if (!selected) return;
+    fetch(`/api/documents?patientId=${encodeURIComponent(selected)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { documents: [] }))
+      .then((d) => setDocs(d.documents ?? []))
+      .catch(() => undefined);
+  }, [selected]);
 
   return (
     <div>
@@ -150,6 +160,36 @@ export default function DoctorPatientsPage() {
                     ))}
                   </div>
                 </div>
+
+                {docs.length > 0 && (
+                  <div className="rounded-2xl border border-lavender-200 bg-white p-4 shadow-card">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-lavender-700">
+                      Patient-uploaded reports ({docs.length})
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {docs.map((d) => (
+                        <li
+                          key={d.id}
+                          className="flex items-center gap-2 rounded-lg border border-lavender-100 bg-lavender-50/40 px-3 py-2 text-xs"
+                        >
+                          <span>{d.mimeType.includes("pdf") ? "📄" : "🖼️"}</span>
+                          <span className="min-w-0 flex-1 truncate text-lavender-900">
+                            {d.fileName}
+                            {d.note ? ` · ${d.note}` : ""}
+                          </span>
+                          <a
+                            href={d.dataUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded border border-lavender-300 px-2 py-0.5 font-medium text-lavender-800 hover:bg-lavender-100"
+                          >
+                            View
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <CareChat
                   viewerRole="doctor"

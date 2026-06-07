@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ToastViewport } from "@/components/Toast";
+import { I18nProvider } from "@/lib/i18n/I18nProvider";
 
 export const metadata: Metadata = {
   title: "Oral Cancer Agentic AI Screening Prototype",
@@ -16,8 +17,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        {children}
-        <ToastViewport />
+        <I18nProvider>
+          {children}
+          <ToastViewport />
+        </I18nProvider>
       </body>
     </html>
   );

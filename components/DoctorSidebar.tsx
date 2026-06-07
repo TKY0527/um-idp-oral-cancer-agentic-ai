@@ -3,16 +3,20 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { useT } from "@/lib/i18n/I18nProvider";
+import type { DictKey } from "@/lib/i18n/dictionary";
 
-const NAV = [
-  { href: "/doctor", label: "Triage Queue", icon: "📥" },
-  { href: "/doctor/patients", label: "Patients", icon: "👥" },
-  { href: "/doctor/analytics", label: "Analytics", icon: "📊" },
+const NAV: { href: string; key: DictKey; icon: string }[] = [
+  { href: "/doctor", key: "nav.triage", icon: "📥" },
+  { href: "/doctor/patients", key: "nav.patients", icon: "👥" },
+  { href: "/doctor/analytics", key: "nav.analytics", icon: "📊" },
 ];
 
 export function DoctorSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useT();
   const [name, setName] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
@@ -42,8 +46,11 @@ export function DoctorSidebar() {
         <div>
           <p className="text-sm font-bold leading-tight">Clinician Console</p>
           <p className="text-[10px] uppercase tracking-wider text-lavender-200">
-            Doctor
+            {t("common.doctor")}
           </p>
+        </div>
+        <div className="ml-auto">
+          <LanguageToggle tone="dark" />
         </div>
       </div>
 
@@ -64,7 +71,7 @@ export function DoctorSidebar() {
               }`}
             >
               <span aria-hidden>{n.icon}</span>
-              <span>{n.label}</span>
+              <span>{t(n.key)}</span>
             </Link>
           );
         })}

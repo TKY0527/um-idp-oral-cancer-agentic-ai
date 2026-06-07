@@ -3,17 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserMenu } from "@/components/UserMenu";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { useT } from "@/lib/i18n/I18nProvider";
+import type { DictKey } from "@/lib/i18n/dictionary";
 
-const NAV = [
-  { href: "/patient", label: "Overview", icon: "🏠" },
-  { href: "/patient/screening", label: "New Screening", icon: "🔬" },
-  { href: "/patient/history", label: "History", icon: "📅" },
-  { href: "/patient/chat", label: "AI Assistant", icon: "💬" },
-  { href: "/patient/messages", label: "Message Doctor", icon: "✉️" },
+const NAV: { href: string; key: DictKey; icon: string }[] = [
+  { href: "/patient", key: "nav.overview", icon: "🏠" },
+  { href: "/patient/screening", key: "nav.newScreening", icon: "🔬" },
+  { href: "/patient/history", key: "nav.history", icon: "📅" },
+  { href: "/patient/chat", key: "nav.assistant", icon: "💬" },
+  { href: "/patient/messages", key: "nav.messageDoctor", icon: "✉️" },
+  { href: "/patient/documents", key: "nav.documents", icon: "📎" },
 ];
 
 export function PatientSidebar() {
   const pathname = usePathname();
+  const { t } = useT();
 
   return (
     <aside className="sticky top-0 hidden h-screen w-64 flex-col border-r border-lavender-200 bg-white/70 p-4 backdrop-blur lg:flex">
@@ -26,8 +31,11 @@ export function PatientSidebar() {
             OralScan AI
           </p>
           <p className="text-[10px] uppercase tracking-wider text-lavender-700">
-            Patient
+            {t("common.patient")}
           </p>
+        </div>
+        <div className="ml-auto">
+          <LanguageToggle />
         </div>
       </div>
 
@@ -48,7 +56,7 @@ export function PatientSidebar() {
               }`}
             >
               <span aria-hidden>{n.icon}</span>
-              <span>{n.label}</span>
+              <span>{t(n.key)}</span>
             </Link>
           );
         })}

@@ -1,6 +1,9 @@
-import { SCREENING_DISCLAIMER } from "@/lib/utils/riskUtils";
+"use client";
+
+import { useT } from "@/lib/i18n/I18nProvider";
 
 export function SafetyBanner() {
+  const { t } = useT();
   return (
     <div className="rounded-2xl border border-lavender-300 bg-gradient-to-br from-lavender-50 to-white p-4 shadow-card">
       <div className="flex items-start gap-3">
@@ -21,10 +24,10 @@ export function SafetyBanner() {
         </div>
         <div>
           <p className="font-semibold text-lavender-900">
-            Educational prototype — not a medical device
+            {t("common.notDevice")}
           </p>
           <p className="mt-1 text-sm text-lavender-900/80">
-            {SCREENING_DISCLAIMER}
+            {t("common.disclaimer")}
           </p>
         </div>
       </div>

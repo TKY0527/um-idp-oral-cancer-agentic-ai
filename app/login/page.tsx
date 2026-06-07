@@ -2,6 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { LanguageToggle } from "@/components/LanguageToggle";
 
 const QUICK = [
   { username: "patient1", password: "patient1", label: "Patient One", emoji: "🧑", role: "patient" },
@@ -12,6 +14,7 @@ const QUICK = [
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
+  const { t } = useT();
   const next = params.get("next") ?? "";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -46,15 +49,16 @@ function LoginInner() {
             🦷
           </div>
           <h1 className="text-2xl font-bold text-lavender-950">OralScan AI</h1>
-          <p className="text-sm text-lavender-700">
-            Agentic oral cancer screening · sign in to continue
-          </p>
+          <p className="text-sm text-lavender-700">{t("login.subtitle")}</p>
+          <div className="mt-3 flex justify-center">
+            <LanguageToggle />
+          </div>
         </div>
 
         {/* Quick demo logins */}
         <div className="rounded-2xl border border-lavender-200 bg-white p-5 shadow-card">
           <p className="text-xs font-semibold uppercase tracking-wide text-lavender-700">
-            Quick demo accounts
+            {t("login.quick")}
           </p>
           <div className="mt-3 grid grid-cols-3 gap-2">
             {QUICK.map((q) => (
@@ -89,19 +93,19 @@ function LoginInner() {
           className="mt-4 rounded-2xl border border-lavender-200 bg-white p-5 shadow-card"
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-lavender-700">
-            Or sign in manually
+            {t("login.manual")}
           </p>
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Username"
+            placeholder={t("login.username")}
             autoComplete="username"
             className="mt-3 w-full rounded-lg border border-lavender-300 bg-white px-3 py-2 text-sm focus:border-lavender-500 focus:outline-none focus:ring-1 focus:ring-lavender-500"
           />
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
+            placeholder={t("login.password")}
             type="password"
             autoComplete="current-password"
             className="mt-2 w-full rounded-lg border border-lavender-300 bg-white px-3 py-2 text-sm focus:border-lavender-500 focus:outline-none focus:ring-1 focus:ring-lavender-500"
@@ -116,7 +120,7 @@ function LoginInner() {
             disabled={busy}
             className="mt-3 w-full rounded-xl bg-lavender-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-lavender-800 disabled:opacity-50"
           >
-            {busy ? "Signing in…" : "Sign in"}
+            {busy ? "…" : t("common.signIn")}
           </button>
         </form>
 

@@ -169,6 +169,35 @@ export interface ScreeningSession {
   ownerId?: string;
   ownerLabel?: string;
   channel?: "web" | "telegram";
+  /** Optional: multi-condition dental wellness (cavities, gum, hygiene). */
+  dentalWellness?: DentalWellness;
+}
+
+/**
+ * Multi-condition dental wellness assessment (educational) — produced
+ * alongside the oral-cancer screening so the app covers everyday concerns
+ * like cavities (蛀牙) and gum health, not only cancer.
+ */
+export interface DentalWellness {
+  cavityRisk: "low" | "early_signs" | "likely";
+  gumCondition: "healthy" | "mild_inflammation" | "likely_disease";
+  plaqueLevel: "low" | "moderate" | "heavy";
+  staining: "none" | "mild" | "notable";
+  hygieneScore: number; // 0–100 (higher = better hygiene)
+  summary: string;
+  suggestions: string[];
+  disclaimer: string;
+}
+
+/** An uploaded patient document (e.g. a previous dental report). */
+export interface PatientDocument {
+  id: string;
+  patientId: string;
+  fileName: string;
+  mimeType: string;
+  dataUrl: string; // data: URL (image or PDF), size-capped
+  uploadedAt: string;
+  note?: string;
 }
 
 /** A doctor↔patient message in a care thread. */
