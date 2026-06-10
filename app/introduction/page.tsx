@@ -79,6 +79,11 @@ const PATTERN_MAPPING: {
         ours: "Idempotent demo seeding runs on first contact, and the doctor queue live-polls so urgent cases surface without anyone asking.",
         file: "lib/server/demoSeed.ts · app/doctor/page.tsx",
       },
+      {
+        pattern: "Skills as plain instruction files",
+        ours: "Five care protocols (scaling 洗牙 advice, betel/tobacco cessation, post-screening care, brushing coaching, referral letters) live as readable skill files; agents load the matching one AT RUNTIME before giving suggestions.",
+        file: "lib/skills/index.ts",
+      },
     ],
   },
   {
@@ -101,8 +106,18 @@ const PATTERN_MAPPING: {
       },
       {
         pattern: "Permission boundaries",
-        ours: "Role-gated routes (doctor vs patient), server-side authz on every API, and conditional agent activation (referral only on High risk).",
+        ours: "Role-gated routes (doctor vs patient vs admin), server-side authz on every API, and conditional agent activation (referral only on High risk).",
         file: "middleware.ts · app/api/doctor/assistant/route.ts",
+      },
+      {
+        pattern: "MCP — the open tool protocol",
+        ours: "A real MCP server (JSON-RPC 2.0): Claude Desktop / Claude Code can connect with a bearer token and call the SAME tools the internal agent uses — patient profile, sessions, cohort compare, knowledge search, skills.",
+        file: "app/api/mcp/route.ts",
+      },
+      {
+        pattern: "Grounded answers (RAG)",
+        ours: "BM25 retrieval with bilingual synonyms (蛀牙→caries, 洗牙→scaling) over a 23-document cancer + dental knowledge base; chat and the doctor agent must cite the retrieved sources instead of inventing statistics.",
+        file: "lib/retrieval/engine.ts · lib/knowledge/*",
       },
     ],
   },

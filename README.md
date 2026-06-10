@@ -86,6 +86,21 @@ All wrapped in an animated, network-graph **live pipeline overlay** that shows e
   “Which patient should I see first?” — it calls `compare_all_patients` and
   ranks the cohort with reasons (risk trend, lesion duration, overdue
   scaling).
+- **Strong RAG.** BM25 retrieval engine (`lib/retrieval/engine.ts`) with
+  CJK-aware tokenization and bilingual synonyms (蛀牙→caries, 洗牙→scaling)
+  over a 23-document cancer + dental knowledge base — grounding the
+  screening citations, the patient chat, and the doctor agent
+  (`search_knowledge` tool). Test it: `npx tsx scripts/testRetrieval.ts`.
+- **Skills library.** Five care protocols (`lib/skills/index.ts`): scaling
+  advice 洗牙, betel/tobacco cessation, post-screening care, brushing
+  coaching, referral letters. The chat agent auto-injects the matching
+  protocol; the doctor agent loads it via `get_skill` before giving
+  suggestions.
+- **MCP server.** `/api/mcp` is a real Model Context Protocol endpoint
+  (JSON-RPC 2.0): set `MCP_ACCESS_TOKEN`, then connect Claude Desktop or
+  Claude Code (`claude mcp add --transport http oralscan <url> --header
+  "Authorization: Bearer <token>"`) and call the same patient/knowledge/
+  skill tools the internal agent uses.
 
 ---
 

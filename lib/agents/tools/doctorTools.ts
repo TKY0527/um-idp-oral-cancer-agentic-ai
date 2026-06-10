@@ -8,6 +8,8 @@ import {
   listAllSessions,
   listSessionsForPatient,
 } from "@/lib/server/repository";
+import { searchKnowledge } from "@/lib/retrieval/engine";
+import { getSkill, listSkills } from "@/lib/skills";
 
 /**
  * Doctor-agent tool registry — the Hermes-harness pattern:
@@ -230,11 +232,66 @@ const compareAllPatientsTool: DoctorTool = {
   },
 };
 
-/** The registry — add a tool here and the agent can immediately use it. */
+const searchKnowledgeTool: DoctorTool = {
+  name: "search_knowledge",
+  description:
+    "BM25 search over the curated oral-cancer + dental-health knowledge base (bilingual: English + 中文 terms like 蛀牙/洗牙). Use it to ground statistics, thresholds, and recommendations in citable sources.",
+  parameters: {
+    query: "what to look up, e.g. 'leukoplakia transformation rate' or '洗牙 frequency'",
+  },
+  async run(args) {
+    const query = typeof args.query === "string" ? args.query : "";
+    if (!query.trim()) return { error: "query is required" };
+    return {
+      results: searchKnowledge(query, 5).map((h) => ({
+        title: h.entry.title,
+        source: h.entry.source,
+        relevance: Number(h.normalized.toFixed(2)),
+        matchedTerms: h.matchedTerms,
+        text: h.entry.text,
+      })),
+    };
+  },
+};
+
+const listSkillsTool: DoctorTool = {
+  name: "list_skills",
+  description:
+    "List the care-protocol skills available (scaling advice, cessation, post-screening care, brushing coaching, referral letter). Call get_skill before giving suggestions in these areas.",
+  parameters: {},
+  async run() {
+    return {
+      skills: listSkills().map((s) => ({
+        name: s.name,
+        description: s.description,
+        audience: s.audience,
+      })),
+    };
+  },
+};
+
+const getSkillTool: DoctorTool = {
+  name: "get_skill",
+  description:
+    "Fetch a skill's full protocol (markdown steps) by name and FOLLOW it when formulating suggestions.",
+  parameters: { name: "skill name from list_skills, e.g. 'scaling-advice'" },
+  async run(args) {
+    const name = typeof args.name === "string" ? args.name : "";
+    const skill = getSkill(name);
+    return skill
+      ? { name: skill.name, audience: skill.audience, protocol: skill.content }
+      : { error: `Unknown skill "${name}". Use list_skills first.` };
+  },
+};
+
+/** The registry — add a tool here and the agent (and MCP server) can use it. */
 export const DOCTOR_TOOLS: DoctorTool[] = [
   getPatientProfileTool,
   listPatientSessionsTool,
   compareAllPatientsTool,
+  searchKnowledgeTool,
+  listSkillsTool,
+  getSkillTool,
 ];
 
 /** Tool catalog rendered into the system prompt. */

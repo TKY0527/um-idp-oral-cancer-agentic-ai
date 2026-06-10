@@ -226,7 +226,7 @@ export function ArchitectureDiagram() {
             <span className="text-lavender-300">→</span>
             <Chip label="🦷 Tooth Health 蛀牙·洗牙" />
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
             <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-2">
               <p className="flex items-center gap-1.5 text-[11px] font-bold text-lavender-950">
                 🧑‍⚕️ Multi-Expert Panel <Dots sources={["claudecode"]} />
@@ -239,12 +239,22 @@ export function ArchitectureDiagram() {
             </div>
             <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2">
               <p className="flex items-center gap-1.5 text-[11px] font-bold text-lavender-950">
-                🤖 Doctor Assistant — tool loop <Dots sources={["hermes"]} />
+                🤖 Doctor agent — tool loop <Dots sources={["hermes"]} />
               </p>
               <p className="text-[10px] text-lavender-900/70">
-                model → tool → observation → repeat (≤4 steps) over a registry:
-                get_patient_profile · list_patient_sessions ·
-                compare_all_patients (&quot;who should I see first?&quot;).
+                model → tool → observation → repeat over one registry: profile ·
+                sessions · compare-all · search_knowledge · skills. The same
+                registry is exposed externally as an MCP server (/api/mcp).
+              </p>
+            </div>
+            <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-2">
+              <p className="flex items-center gap-1.5 text-[11px] font-bold text-lavender-950">
+                🧩 Skills + 📚 RAG <Dots sources={["openclaw", "claudecode"]} />
+              </p>
+              <p className="text-[10px] text-lavender-900/70">
+                Care protocols (洗牙 advice, cessation, aftercare…) loaded at
+                runtime, and BM25 retrieval with bilingual synonyms (蛀牙→caries)
+                so every answer cites the knowledge base.
               </p>
             </div>
           </div>

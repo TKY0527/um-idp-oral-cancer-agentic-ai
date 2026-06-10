@@ -1,6 +1,8 @@
 import type { ChatRole, ProviderKeys, RiskLevel } from "@/lib/types/screening";
 import { SCREENING_DISCLAIMER } from "@/lib/utils/riskUtils";
 import { callOpenAIText } from "@/lib/agents/experts/_openaiTextExpert";
+import { knowledgeContextBlock } from "@/lib/retrieval/engine";
+import { matchSkills } from "@/lib/skills";
 
 export interface ChatTurn {
   role: ChatRole;
@@ -80,11 +82,32 @@ function fallbackReply(userText: string, ctx: ChatInput["patientContext"]): stri
 }
 
 function buildPromptBlocks(input: ChatInput): { context: string; convo: string } {
-  const context = input.patientContext
+  let context = input.patientContext
     ? `Patient context: latestRiskLevel=${input.patientContext.latestRiskLevel ?? "n/a"}, ` +
       `latestScore=${input.patientContext.latestScore ?? "n/a"}, ` +
       `latestFinding=${input.patientContext.latestFinding ?? "n/a"}.`
     : "Patient context: no screening yet.";
+
+  const lastUser =
+    [...input.messages].reverse().find((m) => m.role === "user")?.content ?? "";
+
+  // RAG grounding: retrieve the most relevant knowledge for THIS question
+  // (plus the latest finding) and require the answer to stay inside it.
+  const ragQuery = `${lastUser} ${input.patientContext?.latestFinding ?? ""}`;
+  const knowledge = knowledgeContextBlock(ragQuery, 3);
+  if (knowledge) {
+    context +=
+      `\n\nRELEVANT KNOWLEDGE (ground your answer in these facts; mention the ` +
+      `bracketed source title when you use one; do NOT invent statistics beyond them):\n${knowledge}`;
+  }
+
+  // Skill injection: if a care protocol matches the question, follow it.
+  const skill = matchSkills(lastUser, "patient", 1)[0];
+  if (skill) {
+    context +=
+      `\n\nCARE PROTOCOL "${skill.name}" (follow these steps when giving suggestions):\n${skill.content}`;
+  }
+
   const convo = input.messages
     .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
     .join("\n");
