@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArchitectureDiagram } from "@/components/ArchitectureDiagram";
 import {
   AGENT_REGISTRY,
   PATTERN_SOURCES,
@@ -316,6 +317,23 @@ export default function IntroductionPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* Architecture diagram */}
+        <section className="mt-14">
+          <h2 className="text-xl font-bold text-lavender-950">
+            🏗️ The full architecture at a glance
+          </h2>
+          <p className="mt-1 text-sm text-lavender-900/70">
+            Read it top to bottom: a photo enters through any door, one
+            gateway routes it, the lead agent delegates to the specialists,
+            the models do the seeing, everything becomes a shared record, and
+            the same result flows back out of every door. The colored dots
+            mark which harness each pattern was borrowed from.
+          </p>
+          <div className="mt-4">
+            <ArchitectureDiagram />
           </div>
         </section>
 
