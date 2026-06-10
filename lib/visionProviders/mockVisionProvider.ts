@@ -1,4 +1,4 @@
-import type { VisionResult } from "@/lib/types/screening";
+import type { VisionProviderId, VisionResult } from "@/lib/types/screening";
 import { SCREENING_DISCLAIMER } from "@/lib/utils/riskUtils";
 
 export interface VisionProviderInput {
@@ -6,10 +6,12 @@ export interface VisionProviderInput {
   imageMimeType?: string;
   // For sample cases the orchestrator passes a preset directly through analyze().
   preset?: VisionResult;
+  /** Demo BYOK: user-pasted API key — takes priority over the backend env key. */
+  apiKey?: string;
 }
 
 export interface VisionProvider {
-  id: "mock" | "gemini" | "claude" | "local";
+  id: VisionProviderId;
   label: string;
   analyze(input: VisionProviderInput): Promise<VisionResult>;
 }
@@ -63,6 +65,21 @@ export const mockVisionProvider: VisionProvider = {
         ? 0.05 + (seed % 10) / 100
         : 0.2 + ((seed >> 5) % 60) / 100;
 
+    // Function 2 (tooth health) — same picture, deterministic mock cues so the
+    // dual-function output is always demonstrated even with zero API keys.
+    const cavityOptions = ["none", "possible", "visible"] as const;
+    const gumOptions = ["none", "mild", "notable"] as const;
+    const plaqueOptions = ["low", "moderate", "heavy"] as const;
+    const stainOptions = ["none", "mild", "notable"] as const;
+    const dentalSigns = {
+      cavitySigns: cavityOptions[(seed >> 9) % 3],
+      gumRedness: gumOptions[(seed >> 11) % 3],
+      plaqueOrTartar: plaqueOptions[(seed >> 13) % 3],
+      toothStaining: stainOptions[(seed >> 15) % 3],
+      notes:
+        "Mock tooth-health estimate derived deterministically from the image bytes for prototype demo only.",
+    };
+
     return {
       visualFinding: finding,
       suspectedRegion: region,
@@ -71,6 +88,7 @@ export const mockVisionProvider: VisionProvider = {
       imageQuality: "moderate",
       observationSummary: `Mock analysis: image deterministically classified as ${finding} for prototype demo only.`,
       disclaimer: SCREENING_DISCLAIMER,
+      dentalSigns,
     };
   },
 };

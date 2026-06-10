@@ -24,7 +24,20 @@ export type RiskLevel = "Low" | "Medium" | "High";
 
 export type ConfidenceLevel = "Low" | "Moderate" | "High";
 
-export type VisionProviderId = "mock" | "gemini" | "claude" | "local";
+export type VisionProviderId = "mock" | "gemini" | "claude" | "openai" | "local";
+
+/**
+ * Bring-your-own-key (demo mode): API keys pasted by the user in the UI.
+ * They are kept in the browser (localStorage), sent only with the request
+ * that needs them, used for the direct provider call, and never persisted
+ * server-side. When a key is absent the server falls back to the hidden
+ * backend key from the environment (a separate, independent path).
+ */
+export interface ProviderKeys {
+  openai?: string;
+  gemini?: string;
+  anthropic?: string;
+}
 
 export interface Questionnaire {
   age: number;
@@ -60,6 +73,19 @@ export interface DetectionBox {
   score: number;
 }
 
+/**
+ * Tooth-health cues read DIRECTLY from the same picture by the vision LLM —
+ * the second "function" of the single image analysis (function 1 = oral
+ * cancer cues, function 2 = everyday tooth health).
+ */
+export interface DentalSigns {
+  cavitySigns: "none" | "possible" | "visible";
+  gumRedness: "none" | "mild" | "notable";
+  plaqueOrTartar: "low" | "moderate" | "heavy";
+  toothStaining: "none" | "mild" | "notable";
+  notes: string;
+}
+
 export interface VisionResult {
   visualFinding: VisualFinding;
   suspectedRegion: SuspectedRegion;
@@ -72,6 +98,8 @@ export interface VisionResult {
   detections?: DetectionBox[];
   /** Optional: chain-of-thought reasoning extracted from the model. */
   reasoning?: string;
+  /** Optional: tooth-health cues from the SAME image (function 2). */
+  dentalSigns?: DentalSigns;
 }
 
 export interface RiskScore {
@@ -187,6 +215,13 @@ export interface DentalWellness {
   summary: string;
   suggestions: string[];
   disclaimer: string;
+  /** What the vision model saw in the picture itself (when an LLM ran). */
+  imageObservations?: string;
+  /** 要不要洗牙 — professional scaling/cleaning recommendation. */
+  scalingAdvice?: {
+    level: "not_needed" | "routine" | "soon";
+    reason: string;
+  };
 }
 
 /** An uploaded patient document (e.g. a previous dental report). */
@@ -273,6 +308,8 @@ export interface ScreeningRequestBody {
   preferredProvider?: VisionProviderId;
   /** Run a second provider in parallel for cross-checking. */
   consensusProvider?: VisionProviderId;
+  /** Demo BYOK: user-pasted API keys used instead of the backend keys. */
+  apiKeys?: ProviderKeys;
 }
 
 export interface ConsensusReport {
@@ -301,4 +338,6 @@ export interface ChatRequestBody {
     latestScore?: number;
     latestFinding?: string;
   };
+  /** Demo BYOK: user-pasted API keys used instead of the backend keys. */
+  apiKeys?: ProviderKeys;
 }

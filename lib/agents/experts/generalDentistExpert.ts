@@ -10,6 +10,8 @@ import { callGeminiExpert } from "./_geminiTextExpert";
 export interface ExpertInput {
   vision: VisionResult;
   questionnaire: Questionnaire;
+  /** Demo BYOK: user-pasted keys — take priority over backend env keys. */
+  apiKeys?: import("@/lib/types/screening").ProviderKeys;
 }
 
 const SYSTEM_PROMPT = `You are a COMMUNITY GENERAL DENTIST with 10 years of clinical practice. You see this patient face-to-face every 6 months and your job is clinical pragmatics: what to TELL the patient, when to REFER, and what FOLLOW-UP timeline to set.
@@ -180,6 +182,7 @@ export async function runGeneralDentistExpert(
       systemPrompt: SYSTEM_PROMPT,
       userPayload,
       temperature: 0.4, // a bit more conversational
+      apiKey: input.apiKeys?.gemini,
     });
     return coerce(raw, input.vision, "gemini", false);
   } catch (err) {

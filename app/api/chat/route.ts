@@ -33,6 +33,7 @@ export async function POST(req: Request) {
     const reply = await runChatAgent({
       messages: body.messages,
       patientContext: body.patientContext,
+      apiKeys: body.apiKeys,
     });
     return NextResponse.json({ reply });
   } catch (err) {

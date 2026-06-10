@@ -16,7 +16,13 @@ loadEnvLocal();
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED_PROVIDERS: VisionProviderId[] = ["mock", "gemini", "claude", "local"];
+const ALLOWED_PROVIDERS: VisionProviderId[] = [
+  "mock",
+  "gemini",
+  "claude",
+  "openai",
+  "local",
+];
 
 function resolveProvider(requested?: VisionProviderId): VisionProviderId {
   if (requested && ALLOWED_PROVIDERS.includes(requested)) return requested;
@@ -68,6 +74,7 @@ export async function POST(req: Request) {
         preset: sample.preset,
         questionnaire: body.questionnaire,
         preferredProvider: provider,
+        apiKeys: body.apiKeys,
       });
       return NextResponse.json(session);
     } catch (err) {
@@ -95,6 +102,8 @@ export async function POST(req: Request) {
         fileName: body.fileName,
         questionnaire: body.questionnaire,
         preferredProvider: provider,
+        consensusProvider: body.consensusProvider,
+        apiKeys: body.apiKeys,
       });
       return NextResponse.json(session);
     } catch (err) {
@@ -122,7 +131,12 @@ export async function GET() {
       imageBase64: "(when source=upload) base64-encoded image",
       imageMimeType: "image/jpeg | image/png",
       fileName: "optional",
-      preferredProvider: "mock | gemini | claude | local",
+      preferredProvider: "mock | gemini | claude | openai | local",
+      apiKeys: {
+        openai: "(optional) demo BYOK key — used instead of the backend key",
+        gemini: "(optional) demo BYOK key",
+        anthropic: "(optional) demo BYOK key",
+      },
       questionnaire: {
         age: "number",
         tobacco: "boolean",

@@ -1,11 +1,47 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useSessionStore } from "@/lib/store/useSessionStore";
+import { sessionStore } from "@/lib/store/sessionStore";
 import { riskLevelColorClass } from "@/lib/utils/riskUtils";
+import {
+  getProfileForWebUser,
+  type DemoPatientProfile,
+} from "@/lib/data/demoPatients";
+import { PatientProfileCard } from "@/components/PatientProfileCard";
+import { BrushingHabitsChart } from "@/components/BrushingHabitsChart";
+import { MouthZoneHeatmap } from "@/components/MouthZoneHeatmap";
 
 export default function PatientHomePage() {
   const sessions = useSessionStore();
+  const [profile, setProfile] = useState<DemoPatientProfile | null>(null);
+
+  // Resolve the logged-in user → demo profile, and make sure the demo
+  // history is seeded so the dashboard + history chart have data.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((r) => r.json())
+      .then(async (d) => {
+        const username: string | undefined = d.user?.username;
+        if (!alive || !username) return;
+        const p = getProfileForWebUser(username);
+        setProfile(p ?? null);
+        if (p) {
+          // Idempotent server-side seed; refresh sessions if anything was new.
+          const res = await fetch("/api/demo/seed", { method: "POST" }).catch(
+            () => null
+          );
+          const out = res && res.ok ? await res.json().catch(() => null) : null;
+          if (out?.newlySeeded?.length) void sessionStore.hydrate(true);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
   const latest = sessions[0];
   const total = sessions.length;
   const highCount = sessions.filter((s) => s.risk.riskLevel === "High").length;
@@ -83,6 +119,21 @@ export default function PatientHomePage() {
         <Stat label="Medium risk" value={mediumCount.toString()} tone="amber" />
         <Stat label="High risk" value={highCount.toString()} tone="red" />
       </section>
+
+      {/* Demo patient profile: identity, habits, toothbrush times, tooth
+          condition, prior report — plus the brushing chart and zone heatmap. */}
+      {profile && (
+        <section className="mt-6 grid gap-4 lg:grid-cols-2">
+          <PatientProfileCard profile={profile} />
+          <div className="grid gap-4">
+            <BrushingHabitsChart
+              log={profile.brushingLog}
+              usualTimes={profile.brushing.usualTimes}
+            />
+            <MouthZoneHeatmap zones={profile.zoneCoverage} />
+          </div>
+        </section>
+      )}
 
       <section className="mt-6 grid gap-4 lg:grid-cols-2">
         <article className="rounded-2xl border border-lavender-200 bg-white p-5 shadow-card">

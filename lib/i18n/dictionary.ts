@@ -22,6 +22,7 @@ export const DICT = {
 
   // ── Nav (patient) ──
   "nav.overview": { en: "Overview", bm: "Ringkasan" },
+  "nav.introduction": { en: "Introduction", bm: "Pengenalan" },
   "nav.newScreening": { en: "New Screening", bm: "Saringan Baru" },
   "nav.history": { en: "History", bm: "Sejarah" },
   "nav.assistant": { en: "AI Assistant", bm: "Pembantu AI" },

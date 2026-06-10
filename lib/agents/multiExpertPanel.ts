@@ -1,5 +1,6 @@
 import type {
   PanelDiscussion,
+  ProviderKeys,
   Questionnaire,
   RiskLevel,
   VisionResult,
@@ -14,6 +15,8 @@ export interface PanelInput {
   questionnaire: Questionnaire;
   ruleBasedRiskLevel: RiskLevel;
   triggerReason: string;
+  /** Demo BYOK: user-pasted keys passed through to each expert. */
+  apiKeys?: ProviderKeys;
 }
 
 /**
@@ -33,6 +36,7 @@ export async function runMultiExpertPanel(
   const expertInput = {
     vision: input.vision,
     questionnaire: input.questionnaire,
+    apiKeys: input.apiKeys,
   };
 
   const [pathologist, epidemiologist, dentist] = await Promise.all([

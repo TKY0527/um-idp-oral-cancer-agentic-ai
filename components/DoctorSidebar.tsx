@@ -11,6 +11,7 @@ const NAV: { href: string; key: DictKey; icon: string }[] = [
   { href: "/doctor", key: "nav.triage", icon: "📥" },
   { href: "/doctor/patients", key: "nav.patients", icon: "👥" },
   { href: "/doctor/analytics", key: "nav.analytics", icon: "📊" },
+  { href: "/introduction", key: "nav.introduction", icon: "📖" },
 ];
 
 export function DoctorSidebar() {

@@ -18,6 +18,7 @@ import { RetrievalPanel } from "@/components/RetrievalPanel";
 import { ExpertPanelCard } from "@/components/ExpertPanelCard";
 import { ModeratorVerdictCard } from "@/components/ModeratorVerdictCard";
 import { CareChat } from "@/components/CareChat";
+import { DoctorAssistantPanel } from "@/components/DoctorAssistantPanel";
 import { DentalWellnessCard } from "@/components/DentalWellnessCard";
 import {
   riskLevelColorClass,
@@ -250,6 +251,16 @@ export default function DoctorSessionDetailPage() {
                 via {session.channel ?? "web"}
               </p>
             </div>
+
+            {/* The doctor's AI agent: screen this patient's history */}
+            {session.ownerId && (
+              <DoctorAssistantPanel
+                key={session.ownerId}
+                patientId={session.ownerId}
+                patientLabel={session.ownerLabel ?? "patient"}
+                heightClass="h-64"
+              />
+            )}
 
             {session.ownerId && (
               <CareChat

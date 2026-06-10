@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSessionStore } from "@/lib/store/useSessionStore";
+import { sessionStore } from "@/lib/store/sessionStore";
 import { CareChat } from "@/components/CareChat";
+import { DoctorAssistantPanel } from "@/components/DoctorAssistantPanel";
+import { PatientProfileCard } from "@/components/PatientProfileCard";
+import { BrushingHabitsChart } from "@/components/BrushingHabitsChart";
+import { MouthZoneHeatmap } from "@/components/MouthZoneHeatmap";
+import { getDemoPatientByPatientId } from "@/lib/data/demoPatients";
 import { riskLevelColorClass } from "@/lib/utils/riskUtils";
 import type { PatientDocument, ScreeningSession } from "@/lib/types/screening";
 
@@ -18,6 +24,27 @@ interface PatientGroup {
 export default function DoctorPatientsPage() {
   const sessions = useSessionStore(10000); // live poll every 10s
   const [selected, setSelected] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState<string | null>(null);
+
+  // One-click demo data: seeds Aisyah / Tan / Muthu with their histories.
+  async function seedDemo() {
+    setSeeding(true);
+    setSeedError(null);
+    try {
+      const res = await fetch("/api/demo/seed", { method: "POST" });
+      if (res.ok) {
+        void sessionStore.hydrate(true);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setSeedError(data.error ?? `Seeding failed (HTTP ${res.status})`);
+      }
+    } catch {
+      setSeedError("Couldn't reach the server — check your connection and try again.");
+    } finally {
+      setSeeding(false);
+    }
+  }
 
   const groups = useMemo<PatientGroup[]>(() => {
     const map = new Map<string, ScreeningSession[]>();
@@ -61,17 +88,53 @@ export default function DoctorPatientsPage() {
 
   return (
     <div>
-      <header className="mb-5">
-        <h1 className="text-2xl font-bold text-lavender-950">Patients</h1>
-        <p className="text-sm text-lavender-700">
-          Every patient who has run a screening (web or Telegram). Click to see
-          their track record and message them.
-        </p>
+      <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-lavender-950">Patients</h1>
+          <p className="text-sm text-lavender-700">
+            Every patient who has run a screening (web or Telegram). Click to see
+            their track record, ask the AI assistant, and message them.
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            type="button"
+            onClick={seedDemo}
+            disabled={seeding}
+            className="rounded-xl border border-lavender-300 bg-white px-4 py-2 text-xs font-semibold text-lavender-800 hover:bg-lavender-100 disabled:opacity-50"
+          >
+            {seeding ? "Seeding…" : "🌱 Load demo patients"}
+          </button>
+          {seedError && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-800">
+              {seedError}
+            </p>
+          )}
+        </div>
       </header>
+
+      {/* Cohort triage: the agent compares ALL patients via its tools and
+          tells the doctor who to see first (你判断那个病人合适). */}
+      <div className="mb-4">
+        <DoctorAssistantPanel
+          key="cohort"
+          patientId="*"
+          patientLabel="All patients"
+          heightClass="h-56"
+        />
+      </div>
 
       {groups.length === 0 ? (
         <div className="rounded-2xl border border-lavender-200 bg-white p-8 text-center text-sm text-lavender-600 shadow-card">
-          No patient screenings yet.
+          <p>No patient screenings yet.</p>
+          <button
+            type="button"
+            onClick={seedDemo}
+            disabled={seeding}
+            className="mt-3 rounded-xl bg-lavender-700 px-4 py-2 text-xs font-semibold text-white hover:bg-lavender-800 disabled:opacity-50"
+          >
+            {seeding ? "Seeding…" : "🌱 Load demo patients (Aisyah, Tan, Muthu)"}
+          </button>
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
@@ -120,6 +183,33 @@ export default function DoctorPatientsPage() {
           <div className="space-y-4">
             {active ? (
               <>
+                {/* Demo patient profile (name, race, habits, toothbrush times,
+                    tooth condition, prior report) + charts */}
+                {(() => {
+                  const profile = getDemoPatientByPatientId(active.ownerId);
+                  if (!profile) return null;
+                  return (
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <PatientProfileCard profile={profile} />
+                      <div className="grid gap-4">
+                        <BrushingHabitsChart
+                          log={profile.brushingLog}
+                          usualTimes={profile.brushing.usualTimes}
+                        />
+                        <MouthZoneHeatmap zones={profile.zoneCoverage} />
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* The doctor's AI agent: screen this patient's history.
+                    Keyed by patient so switching remounts a fresh thread. */}
+                <DoctorAssistantPanel
+                  key={active.ownerId}
+                  patientId={active.ownerId}
+                  patientLabel={active.label}
+                />
+
                 <div className="rounded-2xl border border-lavender-200 bg-white p-4 shadow-card">
                   <div className="flex items-center gap-2">
                     <span className="text-xl">

@@ -46,6 +46,47 @@ When the patient provides an oral-cavity image (camera capture, upload, or sampl
 
 All wrapped in an animated, network-graph **live pipeline overlay** that shows each agent activating one by one with glowing data-flow dots and a real-time elapsed timer.
 
+### ✨ Dual-function analysis, BYOK, demo patients & AI assistants
+
+- **One picture → two functions.** Every screening runs BOTH detections on the
+  *same* image in a single vision call: **(1) oral-cancer cues** (finding,
+  region, probability) and **(2) tooth health** (cavity signs, gum redness,
+  plaque/tartar, staining → hygiene score). The tooth-health card shows what
+  the model literally saw in the picture.
+- **All 3 LLM APIs work directly — ChatGPT, Gemini, Claude.** Pick any of them
+  as the vision provider. In the demo, open **“🔑 Plug in your own API key”**
+  on the screening page and paste an OpenAI / Gemini / Anthropic key — your
+  key is then used for the direct provider call instead of the hidden backend
+  key (which remains the separate fallback). Keys live only in your browser.
+- **Demo patients with full data.** Aisyah (29, Malay, healthy), Tan Wei Ming
+  (58, Chinese, smoker + white patch), Muthu (45, Indian, betel quid + ulcer).
+  Each has name, race, habits, toothbrush usage times, tooth condition, a
+  prior dental report, a 14-day **brushing chart**, a mouth-zone **coverage
+  heatmap**, and a seeded screening history (risk-trend chart). Click
+  **“🌱 Load demo patients”** on the doctor’s Patients page (the patient
+  dashboard seeds itself automatically).
+- **AI agents for both roles.** Patients keep the AI Health Assistant chat;
+  doctors get an **AI Assistant panel** (Patients page + session page) that
+  screens the selected patient’s entire history — trend, red flags, referral
+  support — with concrete numbers.
+- **Telegram zero-press flow.** Send a photo → the full pipeline runs
+  instantly using the active demo patient’s data (history, habits, last
+  scaling); the reply contains both the cancer screening AND the tooth-health
+  report incl. the scaling (洗牙) recommendation. The only command you ever
+  need is **/changepatient** (alias /anotherpatient) to switch the demo
+  patient (plus /language, /help).
+- **Agentic architecture page.** Open **`/introduction`** for a public
+  walkthrough of the whole flow: the live agent registry, the doctor agent’s
+  Hermes-style tool loop (watch the 🔧 tool-trace chips), and exactly which
+  patterns were borrowed from **OpenClaw** (gateway, zero-press, file-like
+  memory), **Claude Code** (orchestrator + parallel subagents, structured
+  outputs, audit log), and **Hermes Agent** (tool registry, core loop,
+  provider adapters) — with file references.
+- **AI cohort triage.** On the doctor’s Patients page, ask the triage agent
+  “Which patient should I see first?” — it calls `compare_all_patients` and
+  ranks the cohort with reasons (risk trend, lesion duration, overdue
+  scaling).
+
 ---
 
 ## 🔐 Accounts & multi-user mode

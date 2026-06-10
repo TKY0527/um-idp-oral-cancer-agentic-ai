@@ -1,4 +1,5 @@
 import type {
+  ProviderKeys,
   ProviderStatus,
   VisionProviderId,
   VisionResult,
@@ -6,6 +7,7 @@ import type {
 import { mockVisionProvider } from "@/lib/visionProviders/mockVisionProvider";
 import { geminiVisionProvider } from "@/lib/visionProviders/geminiVisionProvider";
 import { claudeVisionProvider } from "@/lib/visionProviders/claudeVisionProvider";
+import { openaiVisionProvider } from "@/lib/visionProviders/openaiVisionProvider";
 import { localModelProvider } from "@/lib/visionProviders/localModelProvider";
 import type { VisionProvider } from "@/lib/visionProviders/mockVisionProvider";
 
@@ -14,6 +16,8 @@ export interface VisionScreeningInput {
   imageBase64?: string;
   imageMimeType?: string;
   preset?: VisionResult; // when source is a sample case, skip the API call
+  /** Demo BYOK: user-pasted keys take priority over backend env keys. */
+  apiKeys?: ProviderKeys;
 }
 
 export interface VisionScreeningResult {
@@ -25,17 +29,41 @@ const PROVIDERS: Record<VisionProviderId, VisionProvider> = {
   mock: mockVisionProvider,
   gemini: geminiVisionProvider,
   claude: claudeVisionProvider,
+  openai: openaiVisionProvider,
   local: localModelProvider,
 };
 
-function isProviderConfigured(id: VisionProviderId): boolean {
+/**
+ * Resolve the API key for a provider: the user-pasted demo key wins,
+ * otherwise the hidden backend env key is used (separate function/path).
+ */
+export function keyForProvider(
+  id: VisionProviderId,
+  keys?: ProviderKeys
+): string | undefined {
+  switch (id) {
+    case "gemini":
+      return keys?.gemini || process.env.GEMINI_API_KEY || undefined;
+    case "claude":
+      return keys?.anthropic || process.env.ANTHROPIC_API_KEY || undefined;
+    case "openai":
+      return keys?.openai || process.env.OPENAI_API_KEY || undefined;
+    default:
+      return undefined;
+  }
+}
+
+export function isProviderConfigured(
+  id: VisionProviderId,
+  keys?: ProviderKeys
+): boolean {
   switch (id) {
     case "mock":
       return true;
     case "gemini":
-      return Boolean(process.env.GEMINI_API_KEY);
     case "claude":
-      return Boolean(process.env.ANTHROPIC_API_KEY);
+    case "openai":
+      return Boolean(keyForProvider(id, keys));
     case "local":
       return Boolean(process.env.LOCAL_MODEL_ENDPOINT);
   }
@@ -44,8 +72,9 @@ function isProviderConfigured(id: VisionProviderId): boolean {
 /**
  * Vision Screening Agent
  *
- * Pluggable vision provider. Falls back to the mock provider if the requested
- * provider is missing credentials or fails at runtime, never crashes the app.
+ * Pluggable vision provider (Gemini / Claude / ChatGPT / local / mock).
+ * Falls back to the mock provider if the requested provider is missing
+ * credentials or fails at runtime, never crashes the app.
  */
 export async function runVisionScreeningAgent(
   input: VisionScreeningInput
@@ -66,7 +95,7 @@ export async function runVisionScreeningAgent(
     };
   }
 
-  if (!isProviderConfigured(requested)) {
+  if (!isProviderConfigured(requested, input.apiKeys)) {
     const vision = await mockVisionProvider.analyze({
       imageBase64: input.imageBase64,
       imageMimeType: input.imageMimeType,
@@ -80,7 +109,7 @@ export async function runVisionScreeningAgent(
         reason:
           requested === "mock"
             ? undefined
-            : `Provider "${requested}" is not configured. Falling back to mock.`,
+            : `Provider "${requested}" is not configured (no backend key and no pasted key). Falling back to mock.`,
       },
     };
   }
@@ -89,6 +118,7 @@ export async function runVisionScreeningAgent(
     const vision = await PROVIDERS[requested].analyze({
       imageBase64: input.imageBase64,
       imageMimeType: input.imageMimeType,
+      apiKey: keyForProvider(requested, input.apiKeys),
     });
     return {
       vision,

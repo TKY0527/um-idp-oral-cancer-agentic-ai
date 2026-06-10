@@ -1,0 +1,265 @@
+import type { ScreeningSession } from "@/lib/types/screening";
+import {
+  getDemoPatientByPatientId,
+  type DemoPatientProfile,
+} from "@/lib/data/demoPatients";
+import {
+  getPatientMeta,
+  listAllSessions,
+  listSessionsForPatient,
+} from "@/lib/server/repository";
+
+/**
+ * Doctor-agent tool registry — the Hermes-harness pattern:
+ * a central registry where each tool self-describes (name, description,
+ * parameters) and a single dispatcher handles lookup + error wrapping.
+ * The agent loop in doctorAssistantAgent.ts calls the LLM, the LLM picks
+ * a tool, the dispatcher runs it, the observation is appended, repeat.
+ */
+
+export interface DoctorToolContext {
+  /** The patient currently selected in the UI ("*" = whole cohort). */
+  patientId: string;
+}
+
+export interface DoctorTool {
+  name: string;
+  description: string;
+  /** Parameter name → plain-language description (kept simple on purpose). */
+  parameters: Record<string, string>;
+  run(args: Record<string, unknown>, ctx: DoctorToolContext): Promise<unknown>;
+}
+
+/** Compact per-session view — full sessions are far too big for a prompt. */
+export function condenseSessions(sessions: ScreeningSession[]) {
+  return [...sessions]
+    .sort(
+      (a, b) =>
+        new Date(a.finishedAt).getTime() - new Date(b.finishedAt).getTime()
+    )
+    .map((s) => ({
+      date: s.finishedAt.slice(0, 10),
+      channel: s.channel ?? "web",
+      riskScore: s.risk.score,
+      riskLevel: s.risk.riskLevel,
+      visualFinding: s.vision.visualFinding,
+      region: s.vision.suspectedRegion,
+      cancerLikeProbability: s.vision.oralCancerLikeProbability,
+      topRiskDrivers: s.risk.topRiskDrivers.slice(0, 3),
+      toothHealth: s.dentalWellness
+        ? {
+            hygieneScore: s.dentalWellness.hygieneScore,
+            cavityRisk: s.dentalWellness.cavityRisk,
+            gumCondition: s.dentalWellness.gumCondition,
+            plaque: s.dentalWellness.plaqueLevel,
+            scalingAdvice: s.dentalWellness.scalingAdvice?.level,
+          }
+        : undefined,
+      questionnaire: {
+        tobacco: s.questionnaire.tobacco,
+        alcohol: s.questionnaire.alcohol,
+        betelQuid: s.questionnaire.betelQuid,
+        familyHistory: s.questionnaire.familyHistory,
+        lesionDurationWeeks: s.questionnaire.lesionDurationWeeks,
+        pain: s.questionnaire.pain,
+        ulcer: s.questionnaire.ulcer,
+      },
+      clinicianReview: s.clinicianReview
+        ? { decision: s.clinicianReview.decision, notes: s.clinicianReview.notes }
+        : undefined,
+      panelVerdict: s.panelDiscussion?.triggered
+        ? {
+            consensus: s.panelDiscussion.consensus,
+            escalation: s.panelDiscussion.escalation,
+          }
+        : undefined,
+    }));
+}
+
+export function condenseProfile(profile: DemoPatientProfile) {
+  return {
+    name: profile.name,
+    age: profile.age,
+    sex: profile.sex,
+    race: profile.race,
+    occupation: profile.occupation,
+    habits: profile.habits,
+    brushing: profile.brushing,
+    dentalCare: {
+      lastScalingDaysAgo: profile.dentalCare.lastScalingDaysAgo,
+      lastScalingMonthsAgo: Math.floor(
+        profile.dentalCare.lastScalingDaysAgo / 30
+      ),
+      checkupHabit: profile.dentalCare.checkupHabit,
+    },
+    toothCondition: profile.toothCondition,
+    knownDentalIssues: profile.knownDentalIssues,
+    priorReport: {
+      title: profile.priorReport.title,
+      summary: profile.priorReport.summary,
+      findings: profile.priorReport.findings,
+    },
+  };
+}
+
+/** Deterministic urgency score used for the cohort comparison/fallback. */
+export function cohortUrgency(
+  sessions: ScreeningSession[],
+  profile?: DemoPatientProfile
+): { score: number; reasons: string[] } {
+  const ordered = [...sessions].sort(
+    (a, b) =>
+      new Date(a.finishedAt).getTime() - new Date(b.finishedAt).getTime()
+  );
+  const last = ordered[ordered.length - 1];
+  if (!last) return { score: 0, reasons: ["No screenings on record"] };
+
+  let score = last.risk.score;
+  const reasons: string[] = [
+    `Latest risk ${last.risk.score}/100 (${last.risk.riskLevel})`,
+  ];
+  const first = ordered[0];
+  if (ordered.length > 1 && last.risk.score - first.risk.score > 5) {
+    score += 10;
+    reasons.push(`Risk rising (+${last.risk.score - first.risk.score} points)`);
+  }
+  if (last.questionnaire.lesionDurationWeeks > 2) {
+    score += 10;
+    reasons.push(
+      `Lesion present ${last.questionnaire.lesionDurationWeeks} weeks (>2-week threshold)`
+    );
+  }
+  if (
+    last.vision.suspectedRegion === "lateral tongue" ||
+    last.vision.suspectedRegion === "floor of mouth"
+  ) {
+    score += 10;
+    reasons.push(`High-risk site: ${last.vision.suspectedRegion}`);
+  }
+  if (profile && profile.dentalCare.lastScalingDaysAgo > 180) {
+    score += 5;
+    reasons.push(
+      `Scaling overdue (${Math.floor(profile.dentalCare.lastScalingDaysAgo / 30)} months)`
+    );
+  }
+  if (!last.clinicianReview) {
+    reasons.push("Not yet reviewed by a clinician");
+  }
+  return { score, reasons };
+}
+
+async function resolvePatientId(
+  args: Record<string, unknown>,
+  ctx: DoctorToolContext
+): Promise<string> {
+  const fromArgs = typeof args.patientId === "string" ? args.patientId : "";
+  return fromArgs || ctx.patientId;
+}
+
+const getPatientProfileTool: DoctorTool = {
+  name: "get_patient_profile",
+  description:
+    "Get a patient's profile: identity (name, age, race), habits, toothbrush usage, dental-care record (last scaling), tooth condition, known issues, prior dental report.",
+  parameters: {
+    patientId: "optional — defaults to the currently selected patient",
+  },
+  async run(args, ctx) {
+    const patientId = await resolvePatientId(args, ctx);
+    const profile = getDemoPatientByPatientId(patientId);
+    if (profile) return condenseProfile(profile);
+    const meta = await getPatientMeta(patientId);
+    return meta
+      ? { name: meta.label, channel: meta.channel, note: "No rich profile on record (not a demo patient)." }
+      : { error: `No profile found for ${patientId}` };
+  },
+};
+
+const listPatientSessionsTool: DoctorTool = {
+  name: "list_patient_sessions",
+  description:
+    "List a patient's screening history, oldest first: per-session risk score/level, visual finding, region, tooth health (hygiene, cavity, gums, scaling advice), questionnaire flags, clinician reviews.",
+  parameters: {
+    patientId: "optional — defaults to the currently selected patient",
+  },
+  async run(args, ctx) {
+    const patientId = await resolvePatientId(args, ctx);
+    const sessions = await listSessionsForPatient(patientId);
+    return {
+      patientId,
+      screeningCount: sessions.length,
+      screenings: condenseSessions(sessions),
+    };
+  },
+};
+
+const compareAllPatientsTool: DoctorTool = {
+  name: "compare_all_patients",
+  description:
+    "Compare EVERY patient in the clinic: latest risk, trend, red flags, scaling status — with a deterministic urgency ranking. Use this to decide which patient the doctor should see first.",
+  parameters: {},
+  async run() {
+    const all = await listAllSessions();
+    const byPatient = new Map<string, ScreeningSession[]>();
+    for (const s of all) {
+      const key = s.ownerId ?? "unknown";
+      byPatient.set(key, [...(byPatient.get(key) ?? []), s]);
+    }
+    const rows = [...byPatient.entries()].map(([patientId, sessions]) => {
+      const profile = getDemoPatientByPatientId(patientId);
+      const { score, reasons } = cohortUrgency(sessions, profile);
+      const latest = [...sessions].sort(
+        (a, b) =>
+          new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
+      )[0];
+      return {
+        patientId,
+        name: profile?.name ?? latest?.ownerLabel ?? patientId,
+        age: profile?.age,
+        screeningCount: sessions.length,
+        latestRisk: latest ? `${latest.risk.score}/100 (${latest.risk.riskLevel})` : "n/a",
+        latestFinding: latest?.vision.visualFinding,
+        lastScalingMonthsAgo: profile
+          ? Math.floor(profile.dentalCare.lastScalingDaysAgo / 30)
+          : undefined,
+        urgencyScore: score,
+        urgencyReasons: reasons,
+      };
+    });
+    rows.sort((a, b) => b.urgencyScore - a.urgencyScore);
+    return { patients: rows, ranking: rows.map((r) => r.name) };
+  },
+};
+
+/** The registry — add a tool here and the agent can immediately use it. */
+export const DOCTOR_TOOLS: DoctorTool[] = [
+  getPatientProfileTool,
+  listPatientSessionsTool,
+  compareAllPatientsTool,
+];
+
+/** Tool catalog rendered into the system prompt. */
+export function toolCatalogForPrompt(): string {
+  return DOCTOR_TOOLS.map((t) => {
+    const params = Object.entries(t.parameters)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join("; ");
+    return `- ${t.name}(${params || "no parameters"}): ${t.description}`;
+  }).join("\n");
+}
+
+/** Single dispatcher: lookup + execution + error wrapping (never throws). */
+export async function dispatchDoctorTool(
+  name: string,
+  args: Record<string, unknown>,
+  ctx: DoctorToolContext
+): Promise<unknown> {
+  const tool = DOCTOR_TOOLS.find((t) => t.name === name);
+  if (!tool) {
+    return { error: `Unknown tool "${name}". Available: ${DOCTOR_TOOLS.map((t) => t.name).join(", ")}` };
+  }
+  try {
+    return await tool.run(args ?? {}, ctx);
+  } catch (err) {
+    return { error: `Tool ${name} failed: ${err instanceof Error ? err.message : "unknown error"}` };
+  }
+}

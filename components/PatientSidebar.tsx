@@ -14,6 +14,7 @@ const NAV: { href: string; key: DictKey; icon: string }[] = [
   { href: "/patient/chat", key: "nav.assistant", icon: "💬" },
   { href: "/patient/messages", key: "nav.messageDoctor", icon: "✉️" },
   { href: "/patient/documents", key: "nav.documents", icon: "📎" },
+  { href: "/introduction", key: "nav.introduction", icon: "📖" },
 ];
 
 export function PatientSidebar() {

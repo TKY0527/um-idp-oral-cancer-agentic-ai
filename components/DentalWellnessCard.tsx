@@ -92,6 +92,32 @@ export function DentalWellnessCard({ dental }: Props) {
         </div>
       </div>
 
+      {dental.imageObservations && (
+        <p className="mt-3 rounded-lg border border-lavender-100 bg-lavender-50/60 p-2 text-[11px] text-lavender-900">
+          👁️ <b>Seen in this picture:</b> {dental.imageObservations}
+        </p>
+      )}
+
+      {dental.scalingAdvice && (
+        <div
+          className={`mt-3 rounded-lg border p-2 text-[11px] ${
+            dental.scalingAdvice.level === "soon"
+              ? "border-red-200 bg-red-50 text-red-900"
+              : dental.scalingAdvice.level === "routine"
+                ? "border-amber-200 bg-amber-50 text-amber-900"
+                : "border-emerald-200 bg-emerald-50 text-emerald-900"
+          }`}
+        >
+          🪥 <b>Scaling (洗牙)?</b>{" "}
+          {dental.scalingAdvice.level === "soon"
+            ? "Yes — book soon."
+            : dental.scalingAdvice.level === "routine"
+              ? "Routine cleaning due."
+              : "Not needed yet."}{" "}
+          {dental.scalingAdvice.reason}
+        </div>
+      )}
+
       {dental.suggestions.length > 0 && (
         <div className="mt-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-lavender-700">

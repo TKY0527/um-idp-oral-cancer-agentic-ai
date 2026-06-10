@@ -21,8 +21,10 @@ import { RetrievalPanel } from "@/components/RetrievalPanel";
 import { ExpertPanelCard } from "@/components/ExpertPanelCard";
 import { ModeratorVerdictCard } from "@/components/ModeratorVerdictCard";
 import { DentalWellnessCard } from "@/components/DentalWellnessCard";
+import { ApiKeysPanel } from "@/components/ApiKeysPanel";
 import { getSampleCase } from "@/lib/data/sampleCases";
 import { sessionStore } from "@/lib/store/sessionStore";
+import { byokKeysOrUndefined } from "@/lib/utils/byok";
 import type {
   Questionnaire,
   ScreeningSession,
@@ -43,8 +45,9 @@ const DEFAULT_QUESTIONNAIRE: Questionnaire = {
 
 const PROVIDER_OPTIONS: { id: VisionProviderId; label: string; help: string }[] = [
   { id: "mock", label: "Mock", help: "Offline. Works with zero API keys." },
-  { id: "gemini", label: "Gemini Vision", help: "Structured JSON + region boxes." },
-  { id: "claude", label: "Claude Vision", help: "Needs ANTHROPIC_API_KEY." },
+  { id: "gemini", label: "Gemini Vision", help: "Backend key or paste your own below." },
+  { id: "claude", label: "Claude Vision", help: "Backend key or paste your own below." },
+  { id: "openai", label: "ChatGPT Vision", help: "Backend key or paste your own below." },
   { id: "local", label: "Local Model", help: "Custom FastAPI (future)." },
 ];
 
@@ -92,6 +95,9 @@ export default function PatientScreeningPage() {
     setOverlayDone(false);
     setOverlayOpen(true);
     try {
+      // Demo BYOK: pasted keys ride along with the request and are used for
+      // the direct provider calls instead of the hidden backend keys.
+      const apiKeys = byokKeysOrUndefined();
       const body =
         selectedSampleId !== null
           ? {
@@ -101,6 +107,7 @@ export default function PatientScreeningPage() {
               preferredProvider: provider,
               consensusProvider:
                 enableConsensus && upload ? consensusProvider : undefined,
+              apiKeys,
             }
           : {
               source: "upload" as const,
@@ -110,6 +117,7 @@ export default function PatientScreeningPage() {
               questionnaire,
               preferredProvider: provider,
               consensusProvider: enableConsensus ? consensusProvider : undefined,
+              apiKeys,
             };
 
       // Wire abort so handleOverlaySkip() can cancel a slow upstream call.
@@ -259,7 +267,13 @@ export default function PatientScreeningPage() {
       {/* Step 3 — provider + run */}
       <section className="mt-6 rounded-3xl border border-lavender-200 bg-white/70 p-6 shadow-card backdrop-blur">
         <StepHeader n={3} title="Configure vision provider" />
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+
+        {/* Demo BYOK: paste a ChatGPT / Gemini / Claude key and use it directly */}
+        <div className="mt-4">
+          <ApiKeysPanel disabled={running} />
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {PROVIDER_OPTIONS.map((p) => (
             <label
               key={p.id}

@@ -8,6 +8,7 @@ const PROVIDER_LABEL: Record<VisionProviderId, string> = {
   mock: "Mock (offline)",
   gemini: "Gemini Vision",
   claude: "Claude Vision",
+  openai: "ChatGPT Vision",
   local: "Future Local Model",
 };
 

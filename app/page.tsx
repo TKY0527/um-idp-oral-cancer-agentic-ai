@@ -47,6 +47,12 @@ export default function LandingPage() {
             explanation, Triage Prioritization, and more. Patient and clinician each
             get their own dashboard.
           </p>
+          <Link
+            href="/introduction"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl border border-lavender-300 bg-white/80 px-4 py-2 text-sm font-semibold text-lavender-800 backdrop-blur hover:bg-lavender-100"
+          >
+            📖 Introduction — how agentic is this? (OpenClaw · Claude Code · Hermes) →
+          </Link>
         </div>
 
         {/* Role selection */}

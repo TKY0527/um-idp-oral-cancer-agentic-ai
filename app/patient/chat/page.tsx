@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSessionStore } from "@/lib/store/useSessionStore";
+import { byokKeysOrUndefined } from "@/lib/utils/byok";
 import type { ChatMessage } from "@/lib/types/screening";
 
 function newId(): string {
@@ -68,6 +69,7 @@ export default function PatientChatPage() {
         body: JSON.stringify({
           messages: next.map((m) => ({ role: m.role, content: m.content })),
           patientContext,
+          apiKeys: byokKeysOrUndefined(),
         }),
       });
       const data = (await res.json()) as { reply?: string; error?: string };

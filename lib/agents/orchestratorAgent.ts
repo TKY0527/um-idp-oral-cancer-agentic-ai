@@ -1,6 +1,7 @@
 import type {
   AuditLogEntry,
   ClinicianReferral,
+  ProviderKeys,
   Questionnaire,
   ScreeningSession,
   VisionProviderId,
@@ -28,6 +29,13 @@ export interface OrchestratorInput {
   questionnaire: Questionnaire;
   preferredProvider: VisionProviderId;
   consensusProvider?: VisionProviderId;
+  /**
+   * Demo BYOK: user-pasted API keys. Used for the direct provider calls in
+   * this run only — never logged, never persisted.
+   */
+  apiKeys?: ProviderKeys;
+  /** Days since the patient's last professional scaling (from their record). */
+  lastScalingDaysAgo?: number;
   /**
    * Controls the multi-expert panel:
    *   - "auto"  (default) — runs only when risk is Medium or High
@@ -107,6 +115,7 @@ export async function runOrchestratorAgent(
     imageBase64: input.imageBase64,
     imageMimeType: input.imageMimeType,
     preset: input.preset,
+    apiKeys: input.apiKeys,
   });
   if (visionRes.providerStatus.fellBack) {
     logEvent(
@@ -141,6 +150,7 @@ export async function runOrchestratorAgent(
         secondaryProvider: input.consensusProvider,
         imageBase64: input.imageBase64,
         imageMimeType: input.imageMimeType ?? "image/jpeg",
+        apiKeys: input.apiKeys,
       });
       logEvent(
         "ConsensusAgent",
@@ -211,6 +221,7 @@ export async function runOrchestratorAgent(
         questionnaire: input.questionnaire,
         ruleBasedRiskLevel: risk.riskLevel,
         triggerReason,
+        apiKeys: input.apiKeys,
       });
       logEvent(
         "MultiExpertPanel",
@@ -300,6 +311,7 @@ export async function runOrchestratorAgent(
     vision: visionRes.vision,
     questionnaire: input.questionnaire,
     toothbrush,
+    lastScalingDaysAgo: input.lastScalingDaysAgo,
   });
   logEvent(
     "DentalWellnessAgent",

@@ -1,21 +1,24 @@
 import type {
   ConsensusReport,
+  ProviderKeys,
   VisionProviderId,
   VisionResult,
 } from "@/lib/types/screening";
 import type {
   VisionProvider,
-  VisionProviderInput,
 } from "@/lib/visionProviders/mockVisionProvider";
 import { mockVisionProvider } from "@/lib/visionProviders/mockVisionProvider";
 import { geminiVisionProvider } from "@/lib/visionProviders/geminiVisionProvider";
 import { claudeVisionProvider } from "@/lib/visionProviders/claudeVisionProvider";
+import { openaiVisionProvider } from "@/lib/visionProviders/openaiVisionProvider";
 import { localModelProvider } from "@/lib/visionProviders/localModelProvider";
+import { keyForProvider } from "@/lib/agents/visionScreeningAgent";
 
 const PROVIDERS: Record<VisionProviderId, VisionProvider> = {
   mock: mockVisionProvider,
   gemini: geminiVisionProvider,
   claude: claudeVisionProvider,
+  openai: openaiVisionProvider,
   local: localModelProvider,
 };
 
@@ -24,6 +27,8 @@ export interface ConsensusInput {
   secondaryProvider: VisionProviderId;
   imageBase64: string;
   imageMimeType: string;
+  /** Demo BYOK: user-pasted keys take priority over backend env keys. */
+  apiKeys?: ProviderKeys;
 }
 
 function categorize(p: number): "low" | "medium" | "high" {
@@ -74,24 +79,30 @@ export async function runConsensusAgent(
   const primary = PROVIDERS[input.primaryProvider] ?? mockVisionProvider;
   const secondary = PROVIDERS[input.secondaryProvider] ?? mockVisionProvider;
 
-  const payload: VisionProviderInput = {
+  const basePayload = {
     imageBase64: input.imageBase64,
     imageMimeType: input.imageMimeType,
   };
 
   const [primaryRes, secondaryRes] = await Promise.allSettled([
-    primary.analyze(payload),
-    secondary.analyze(payload),
+    primary.analyze({
+      ...basePayload,
+      apiKey: keyForProvider(input.primaryProvider, input.apiKeys),
+    }),
+    secondary.analyze({
+      ...basePayload,
+      apiKey: keyForProvider(input.secondaryProvider, input.apiKeys),
+    }),
   ]);
 
   const primaryOut: VisionResult =
     primaryRes.status === "fulfilled"
       ? primaryRes.value
-      : await mockVisionProvider.analyze(payload);
+      : await mockVisionProvider.analyze(basePayload);
   const secondaryOut: VisionResult =
     secondaryRes.status === "fulfilled"
       ? secondaryRes.value
-      : await mockVisionProvider.analyze(payload);
+      : await mockVisionProvider.analyze(basePayload);
 
   const { agreement, agreementScore } = scoreAgreement(primaryOut, secondaryOut);
 

@@ -1,6 +1,7 @@
 import type {
   ExpertOpinion,
   ExpertRecommendation,
+  ProviderKeys,
   Questionnaire,
   VisionResult,
   VisualFinding,
@@ -10,6 +11,8 @@ import { callGeminiExpert } from "./_geminiTextExpert";
 export interface ExpertInput {
   vision: VisionResult;
   questionnaire: Questionnaire;
+  /** Demo BYOK: user-pasted keys — take priority over backend env keys. */
+  apiKeys?: ProviderKeys;
 }
 
 const SYSTEM_PROMPT = `You are an ORAL CANCER EPIDEMIOLOGIST working with WHO / IARC. You assess every case from a population-risk perspective grounded in published odds ratios.
@@ -190,6 +193,7 @@ export async function runEpidemiologistExpert(
       systemPrompt: SYSTEM_PROMPT,
       userPayload,
       temperature: 0.3, // data-driven
+      apiKey: input.apiKeys?.gemini,
     });
     return coerce(raw, input.vision, "gemini", false);
   } catch (err) {

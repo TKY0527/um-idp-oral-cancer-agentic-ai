@@ -25,6 +25,8 @@ export interface ClaudeCallOptions {
   timeoutMs?: number;
   /** Override the model used for this call. */
   model?: string;
+  /** Demo BYOK: user-pasted key — takes priority over ANTHROPIC_API_KEY. */
+  apiKey?: string;
 }
 
 function extractJson(text: string): unknown {
@@ -39,7 +41,7 @@ function extractJson(text: string): unknown {
 }
 
 export async function callClaudeExpert<T>(opts: ClaudeCallOptions): Promise<T> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = opts.apiKey ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY is not set");
   }

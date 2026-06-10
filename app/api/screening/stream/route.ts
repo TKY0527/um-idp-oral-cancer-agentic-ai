@@ -12,7 +12,13 @@ loadEnvLocal();
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED: VisionProviderId[] = ["mock", "gemini", "claude", "local"];
+const ALLOWED: VisionProviderId[] = [
+  "mock",
+  "gemini",
+  "claude",
+  "openai",
+  "local",
+];
 
 function resolveProvider(p?: VisionProviderId): VisionProviderId {
   if (p && ALLOWED.includes(p)) return p;
@@ -102,6 +108,7 @@ export async function POST(req: Request) {
           questionnaire: body.questionnaire,
           preferredProvider: provider,
           consensusProvider: body.consensusProvider,
+          apiKeys: body.apiKeys,
           onStep: (e) => {
             const eventName =
               e.status === "started"

@@ -1,6 +1,7 @@
 import type {
   ExpertOpinion,
   ExpertRecommendation,
+  ProviderKeys,
   Questionnaire,
   VisionResult,
   VisualFinding,
@@ -21,6 +22,8 @@ const PROVIDER_PREFERENCE = (
 export interface ExpertInput {
   vision: VisionResult;
   questionnaire: Questionnaire;
+  /** Demo BYOK: user-pasted keys — take priority over backend env keys. */
+  apiKeys?: ProviderKeys;
 }
 
 const SYSTEM_PROMPT = `You are an experienced ORAL PATHOLOGIST at a tertiary hospital with 20+ years of clinical experience. You review imaging reports from the perspective of histological correlation and dysplasia risk.
@@ -199,6 +202,7 @@ export async function runOralPathologistExpert(
         systemPrompt: SYSTEM_PROMPT,
         userPayload,
         temperature: 0.2,
+        apiKey: input.apiKeys?.anthropic,
       });
       return coerce(raw, input.vision, "claude", false);
     } catch (err) {
@@ -215,6 +219,7 @@ export async function runOralPathologistExpert(
       systemPrompt: SYSTEM_PROMPT,
       userPayload,
       temperature: 0.2,
+      apiKey: input.apiKeys?.gemini,
     });
     return coerce(raw, input.vision, "gemini", false);
   } catch {

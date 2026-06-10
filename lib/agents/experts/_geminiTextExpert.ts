@@ -21,6 +21,8 @@ export interface ExpertCallOptions {
   userPayload: string; // the case description as a JSON string
   temperature?: number; // expert-specific personality
   timeoutMs?: number;
+  /** Demo BYOK: user-pasted key — takes priority over GEMINI_API_KEY. */
+  apiKey?: string;
 }
 
 export interface ExpertCallResult<T> {
@@ -46,7 +48,7 @@ function extractJson(text: string): unknown {
  * Throws on hard failure — caller is responsible for the mock fallback.
  */
 export async function callGeminiExpert<T>(opts: ExpertCallOptions): Promise<T> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = opts.apiKey ?? process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set");
   }
@@ -59,10 +61,14 @@ export async function callGeminiExpert<T>(opts: ExpertCallOptions): Promise<T> {
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${DEFAULT_MODEL}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${DEFAULT_MODEL}:generateContent`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // Key in header, not URL — avoids leaking it into error/proxy logs.
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
         body: JSON.stringify({
           contents: [
             {
