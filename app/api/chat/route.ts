@@ -3,6 +3,7 @@ import type { ChatRequestBody } from "@/lib/types/screening";
 import { runChatAgent } from "@/lib/agents/chatAgent";
 import { loadEnvLocal } from "@/lib/utils/loadEnvLocal";
 import { getCurrentUser } from "@/lib/server/identity";
+import { getAdminKeys, mergeProviderKeys } from "@/lib/server/adminKeys";
 
 loadEnvLocal();
 
@@ -33,7 +34,8 @@ export async function POST(req: Request) {
     const reply = await runChatAgent({
       messages: body.messages,
       patientContext: body.patientContext,
-      apiKeys: body.apiKeys,
+      // User-pasted key > admin server-wide key > env key.
+      apiKeys: mergeProviderKeys(body.apiKeys, await getAdminKeys()),
     });
     return NextResponse.json({ reply });
   } catch (err) {

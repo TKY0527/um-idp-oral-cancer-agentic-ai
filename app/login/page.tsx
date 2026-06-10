@@ -10,6 +10,7 @@ const QUICK = [
   { username: "patient2", password: "patient2", label: "Patient Two", emoji: "👩", role: "patient" },
   { username: "test1", password: "test1", label: "Test User", emoji: "🧪", role: "patient" },
   { username: "doctor", password: "doctor", label: "Dr. Lim", emoji: "🩺", role: "doctor" },
+  { username: "admin", password: "123456", label: "Admin", emoji: "🔐", role: "admin" },
 ];
 
 function LoginInner() {

@@ -7,7 +7,7 @@
  * for hashed passwords + a real user store before any production use.
  */
 
-export type Role = "patient" | "doctor";
+export type Role = "patient" | "doctor" | "admin";
 
 export interface AppUser {
   username: string;
@@ -55,6 +55,13 @@ export const SEED_USERS: SeededUser[] = [
     password: process.env.SEED_TEST1_PASSWORD ?? "test1",
     role: "patient",
     displayName: "Test User",
+  },
+  // Admin: manages the server-wide provider API keys at /admin.
+  {
+    username: "admin",
+    password: process.env.SEED_ADMIN_PASSWORD ?? "123456",
+    role: "admin",
+    displayName: "Administrator",
   },
 ];
 

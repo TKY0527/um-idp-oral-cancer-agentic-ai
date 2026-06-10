@@ -11,6 +11,7 @@ import {
 } from "@/bot/formatResults";
 import { runOrchestratorAgent } from "@/lib/agents/orchestratorAgent";
 import { saveSession } from "@/lib/server/repository";
+import { getAdminKeys } from "@/lib/server/adminKeys";
 import { ensureDemoDataSeeded } from "@/lib/server/demoSeed";
 import {
   DEFAULT_DEMO_PATIENT_KEY,
@@ -144,6 +145,8 @@ async function runPipeline(
         questionnaire: patient.baselineQuestionnaire,
         preferredProvider: provider(),
         lastScalingDaysAgo: patient.dentalCare.lastScalingDaysAgo,
+        // Admin server-wide keys (set at /admin) > env keys.
+        apiKeys: await getAdminKeys().catch(() => undefined),
         onStep: (e) => {
           if (e.status === "completed")
             pending.push(`✓ ${e.agent}${e.detail ? ` — ${e.detail}` : ""}`);

@@ -7,6 +7,7 @@ import { runOrchestratorAgent } from "@/lib/agents/orchestratorAgent";
 import { getSampleCase } from "@/lib/data/sampleCases";
 import { loadEnvLocal } from "@/lib/utils/loadEnvLocal";
 import { getCurrentUser } from "@/lib/server/identity";
+import { getAdminKeys, mergeProviderKeys } from "@/lib/server/adminKeys";
 
 // Force-load .env.local on first import so OS-level env vars (e.g. an expired
 // GEMINI_API_KEY left over in the user's Windows environment) cannot override
@@ -57,6 +58,9 @@ export async function POST(req: Request) {
 
   const provider = resolveProvider(body.preferredProvider);
 
+  // Key precedence: user-pasted demo key > admin server-wide key > env key.
+  const apiKeys = mergeProviderKeys(body.apiKeys, await getAdminKeys());
+
   // Sample case path: use the preset, no image bytes needed.
   if (body.source === "sample") {
     const sample = getSampleCase(body.sampleId ?? "");
@@ -74,7 +78,7 @@ export async function POST(req: Request) {
         preset: sample.preset,
         questionnaire: body.questionnaire,
         preferredProvider: provider,
-        apiKeys: body.apiKeys,
+        apiKeys,
       });
       return NextResponse.json(session);
     } catch (err) {
@@ -103,7 +107,7 @@ export async function POST(req: Request) {
         questionnaire: body.questionnaire,
         preferredProvider: provider,
         consensusProvider: body.consensusProvider,
-        apiKeys: body.apiKeys,
+        apiKeys,
       });
       return NextResponse.json(session);
     } catch (err) {

@@ -4,6 +4,7 @@ import { runDoctorAssistantAgent } from "@/lib/agents/doctorAssistantAgent";
 import { getDemoPatientByPatientId } from "@/lib/data/demoPatients";
 import { getPatientMeta, listSessionsForPatient } from "@/lib/server/repository";
 import { getCurrentUser } from "@/lib/server/identity";
+import { getAdminKeys, mergeProviderKeys } from "@/lib/server/adminKeys";
 import { loadEnvLocal } from "@/lib/utils/loadEnvLocal";
 
 loadEnvLocal();
@@ -74,7 +75,8 @@ export async function POST(req: Request) {
         : profile?.name ?? meta?.label ?? body.patientId,
       sessions,
       profile,
-      apiKeys: body.apiKeys,
+      // User-pasted key > admin server-wide key > env key.
+      apiKeys: mergeProviderKeys(body.apiKeys, await getAdminKeys()),
     });
     return NextResponse.json(result);
   } catch (err) {

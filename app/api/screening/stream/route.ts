@@ -6,6 +6,7 @@ import { runOrchestratorAgent } from "@/lib/agents/orchestratorAgent";
 import { getSampleCase } from "@/lib/data/sampleCases";
 import { loadEnvLocal } from "@/lib/utils/loadEnvLocal";
 import { getCurrentUser } from "@/lib/server/identity";
+import { getAdminKeys, mergeProviderKeys } from "@/lib/server/adminKeys";
 
 loadEnvLocal();
 
@@ -108,7 +109,8 @@ export async function POST(req: Request) {
           questionnaire: body.questionnaire,
           preferredProvider: provider,
           consensusProvider: body.consensusProvider,
-          apiKeys: body.apiKeys,
+          // User-pasted key > admin server-wide key > env key.
+          apiKeys: mergeProviderKeys(body.apiKeys, await getAdminKeys()),
           onStep: (e) => {
             const eventName =
               e.status === "started"
