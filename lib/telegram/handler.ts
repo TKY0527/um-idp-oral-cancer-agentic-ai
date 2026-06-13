@@ -4,44 +4,41 @@ import {
   type TgUpdate,
 } from "@/lib/telegram/client";
 import { t, type Lang } from "@/bot/translations";
-import {
-  formatAgentTrace,
-  formatPatientCard,
-  formatResult,
-} from "@/bot/formatResults";
+import { formatResult, formatAgentTrace } from "@/bot/formatResults";
 import { runOrchestratorAgent } from "@/lib/agents/orchestratorAgent";
-import { saveSession } from "@/lib/server/repository";
-import { getAdminKeys } from "@/lib/server/adminKeys";
-import { ensureDemoDataSeeded } from "@/lib/server/demoSeed";
-import {
-  DEFAULT_DEMO_PATIENT_KEY,
-  getDemoPatient,
-  nextDemoPatientKey,
-  type DemoPatientProfile,
-} from "@/lib/data/demoPatients";
+import { saveSession, getTelegramPatientId } from "@/lib/server/repository";
 import { kvGet, kvSet } from "@/lib/server/kv";
-import type { VisionProviderId } from "@/lib/types/screening";
+import type {
+  Questionnaire,
+  VisionProviderId,
+} from "@/lib/types/screening";
 
-/**
- * Zero-press Telegram flow:
- *
- *   photo → the full agentic AI pipeline runs IMMEDIATELY using the active
- *   demo patient's data (questionnaire, habits, history). No buttons, no
- *   questions. The reply contains BOTH functions from the same picture:
- *   function 1 (oral-cancer cues) and function 2 (tooth health).
- *
- * The only commands:
- *   /anotherpatient — cycle to the next demo patient
- *   /language       — switch EN ↔ BM
- *   /start, /help   — explain the flow
- */
+type ConvState =
+  | "await_language"
+  | "idle"
+  | "await_photo"
+  | "await_age"
+  | "await_tobacco"
+  | "await_alcohol"
+  | "await_betel"
+  | "await_family"
+  | "await_lesion"
+  | "await_pain"
+  | "await_bleeding"
+  | "await_ulcer"
+  | "processing"
+  | "done";
 
 interface Conv {
+  state: ConvState;
   lang: Lang;
-  /** Active demo patient key ("aisyah" | "tan" | "muthu"). */
-  patientKey: string;
+  photoFileId?: string;
   firstName?: string;
+  q: Partial<Questionnaire>;
 }
+
+const AGE_VALUES = [22, 35, 50, 60, 70];
+const LESION_VALUES = [0, 1, 3, 6];
 
 function provider(): VisionProviderId {
   return (process.env.TELEGRAM_BOT_PROVIDER ?? "mock").toLowerCase() as VisionProviderId;
@@ -49,33 +46,25 @@ function provider(): VisionProviderId {
 
 // ── KV conversation state ────────────────────────────────────────────────────
 async function getConv(chatId: number): Promise<Conv> {
-  const c = await kvGet<Partial<Conv>>(`tgstate:${chatId}`);
-  return {
-    lang: c?.lang === "bm" ? "bm" : "en",
-    patientKey: c?.patientKey ?? DEFAULT_DEMO_PATIENT_KEY,
-    firstName: c?.firstName,
-  };
+  const c = await kvGet<Conv>(`tgstate:${chatId}`);
+  return c ?? { state: "await_language", lang: "en", q: {} };
 }
 async function setConv(chatId: number, conv: Conv): Promise<void> {
   await kvSet(`tgstate:${chatId}`, conv);
 }
 
-function activePatient(conv: Conv): DemoPatientProfile {
-  return (
-    getDemoPatient(conv.patientKey) ??
-    (getDemoPatient(DEFAULT_DEMO_PATIENT_KEY) as DemoPatientProfile)
-  );
-}
-
 // ── Keyboards ────────────────────────────────────────────────────────────────
 function ikb(rows: { text: string; data: string }[][]): TgInlineKeyboard {
-  return {
-    inline_keyboard: rows.map((r) =>
-      r.map((b) => ({ text: b.text, callback_data: b.data }))
-    ),
-  };
+  return { inline_keyboard: rows.map((r) => r.map((b) => ({ text: b.text, callback_data: b.data }))) };
+}
+function yesNo(lang: Lang, prefix: string): TgInlineKeyboard {
+  return ikb([[{ text: t("yes", lang), data: `${prefix}:y` }, { text: t("no", lang), data: `${prefix}:n` }]]);
+}
+function bands(bandStr: string, prefix: string): TgInlineKeyboard {
+  return ikb(bandStr.split("|").map((label, i) => [{ text: label, data: `${prefix}:${i}` }]));
 }
 
+// ── Step prompts ─────────────────────────────────────────────────────────────
 async function sendLanguagePicker(c: TelegramClient, chatId: number) {
   await c.sendMessage(chatId, t("pickLanguage", "en"), {
     replyMarkup: ikb([[
@@ -84,55 +73,74 @@ async function sendLanguagePicker(c: TelegramClient, chatId: number) {
     ]]),
   });
 }
-
-async function sendWelcome(c: TelegramClient, chatId: number, conv: Conv) {
-  const card = formatPatientCard(activePatient(conv), conv.lang);
-  await c.sendMessage(
-    chatId,
-    t("welcome", conv.lang, { patient: card }),
-    { parseMode: "Markdown" }
-  );
+async function sendWelcome(c: TelegramClient, chatId: number, lang: Lang) {
+  await c.sendMessage(chatId, t("welcome", lang), {
+    parseMode: "Markdown",
+    replyMarkup: ikb([
+      [{ text: t("startScreening", lang), data: "begin" }],
+      [{ text: t("about", lang), data: "about" }, { text: t("changeLanguage", lang), data: "lang" }],
+    ]),
+  });
 }
 
-// ── Pipeline (photo → instant screening with demo patient data) ─────────────
-async function runPipeline(
-  c: TelegramClient,
-  chatId: number,
-  conv: Conv,
-  photoFileId: string
-) {
-  const patient = activePatient(conv);
-  // Plain text on purpose: tick details contain raw enum strings like
-  // "ulcer_like" whose underscores would break Markdown parsing and make
-  // Telegram silently reject the whole progress edit.
-  const progressHeader = `${t("processingHeader", conv.lang)}\n${t(
-    "usingPatientLine",
-    conv.lang,
-    { name: patient.name }
-  )}`;
-  const progress = await c.sendMessage(chatId, progressHeader);
+const QUESTION_FLOW: {
+  state: ConvState;
+  ask: (c: TelegramClient, chatId: number, lang: Lang) => Promise<void>;
+}[] = [
+  { state: "await_age", ask: (c, id, l) => c.sendMessage(id, t("qAge", l), { replyMarkup: bands(t("ageBands", l), "age") }).then(() => undefined) },
+  { state: "await_tobacco", ask: (c, id, l) => c.sendMessage(id, t("qTobacco", l), { parseMode: "Markdown", replyMarkup: yesNo(l, "tobacco") }).then(() => undefined) },
+  { state: "await_alcohol", ask: (c, id, l) => c.sendMessage(id, t("qAlcohol", l), { replyMarkup: yesNo(l, "alcohol") }).then(() => undefined) },
+  { state: "await_betel", ask: (c, id, l) => c.sendMessage(id, t("qBetel", l), { parseMode: "Markdown", replyMarkup: yesNo(l, "betel") }).then(() => undefined) },
+  { state: "await_family", ask: (c, id, l) => c.sendMessage(id, t("qFamily", l), { parseMode: "Markdown", replyMarkup: yesNo(l, "family") }).then(() => undefined) },
+  { state: "await_lesion", ask: (c, id, l) => c.sendMessage(id, t("qLesion", l), { replyMarkup: bands(t("lesionBands", l), "lesion") }).then(() => undefined) },
+  { state: "await_pain", ask: (c, id, l) => c.sendMessage(id, t("qPain", l), { replyMarkup: yesNo(l, "pain") }).then(() => undefined) },
+  { state: "await_bleeding", ask: (c, id, l) => c.sendMessage(id, t("qBleeding", l), { replyMarkup: yesNo(l, "bleeding") }).then(() => undefined) },
+  { state: "await_ulcer", ask: (c, id, l) => c.sendMessage(id, t("qUlcer", l), { replyMarkup: yesNo(l, "ulcer") }).then(() => undefined) },
+];
+
+async function askState(c: TelegramClient, chatId: number, lang: Lang, state: ConvState) {
+  const step = QUESTION_FLOW.find((s) => s.state === state);
+  if (step) await step.ask(c, chatId, lang);
+}
+
+// ── Pipeline ─────────────────────────────────────────────────────────────────
+async function runPipeline(c: TelegramClient, chatId: number, conv: Conv) {
+  const progress = await c.sendMessage(chatId, t("processingHeader", conv.lang), {
+    parseMode: "Markdown",
+  });
   const ticks: string[] = [];
   const onTick = async (line: string) => {
     ticks.push(line);
     await c.editMessageText(
       chatId,
       progress.message_id,
-      `${progressHeader}\n\n${ticks.join("\n")}`
+      `${t("processingHeader", conv.lang)}\n\n${ticks.join("\n")}`,
+      { parseMode: "Markdown" }
     );
   };
 
   try {
-    // Make sure the demo history exists so the doctor dashboard shows the
-    // patient's trend the first time anyone screens via Telegram.
-    await ensureDemoDataSeeded().catch(() => undefined);
-
-    const photo = await c.getFileBase64(photoFileId);
+    const photo = conv.photoFileId
+      ? await c.getFileBase64(conv.photoFileId)
+      : null;
     if (!photo) {
-      await c.sendMessage(chatId, t("notPhoto", conv.lang), {
-        parseMode: "Markdown",
-      });
+      await c.sendMessage(chatId, t("notPhoto", conv.lang), { parseMode: "Markdown" });
+      conv.state = "await_photo";
+      await setConv(chatId, conv);
       return;
     }
+
+    const questionnaire: Questionnaire = {
+      age: conv.q.age ?? 30,
+      tobacco: conv.q.tobacco ?? false,
+      alcohol: conv.q.alcohol ?? false,
+      betelQuid: conv.q.betelQuid ?? false,
+      familyHistory: conv.q.familyHistory ?? false,
+      lesionDurationWeeks: conv.q.lesionDurationWeeks ?? 0,
+      pain: conv.q.pain ?? false,
+      bleeding: conv.q.bleeding ?? false,
+      ulcer: conv.q.ulcer ?? false,
+    };
 
     const pending: string[] = [];
     let session;
@@ -141,15 +149,11 @@ async function runPipeline(
         source: "upload",
         imageBase64: photo.base64,
         imageMimeType: photo.mimeType,
-        fileName: `tg_${patient.key}_${chatId}.jpg`,
-        questionnaire: patient.baselineQuestionnaire,
+        fileName: `tg_${chatId}.jpg`,
+        questionnaire,
         preferredProvider: provider(),
-        lastScalingDaysAgo: patient.dentalCare.lastScalingDaysAgo,
-        // Admin server-wide keys (set at /admin) > env keys.
-        apiKeys: await getAdminKeys().catch(() => undefined),
         onStep: (e) => {
-          if (e.status === "completed")
-            pending.push(`✓ ${e.agent}${e.detail ? ` — ${e.detail}` : ""}`);
+          if (e.status === "completed") pending.push(`✓ ${e.agent}${e.detail ? ` — ${e.detail}` : ""}`);
           else if (e.status === "skipped") pending.push(`— ${e.agent} (skipped)`);
         },
       });
@@ -158,25 +162,36 @@ async function runPipeline(
       if (pending.length) await onTick(pending.join("\n"));
     }
 
-    // Persist under the demo patient so the doctor dashboard groups this
-    // screening with the patient's seeded history.
+    // Persist for the doctor dashboard (linked tg patient).
+    const linked = await getTelegramPatientId(chatId);
+    const patientId = linked ?? `tg:${chatId}`;
     await saveSession(session, {
-      patientId: patient.patientId,
-      label: patient.name,
+      patientId,
+      label: linked ? `${conv.firstName ?? "Patient"} (linked)` : `Telegram: ${conv.firstName ?? chatId}`,
       channel: "telegram",
     });
 
-    // Patient-facing report (function 1 + function 2) + agent trace.
-    await c.sendMessage(chatId, formatResult(session, conv.lang, patient), {
+    // Patient-facing report + agent trace.
+    await c.sendMessage(chatId, formatResult(session, conv.lang), {
       parseMode: "MarkdownV2",
     });
     await c.sendMessage(chatId, formatAgentTrace(session, conv.lang), {
       parseMode: "Markdown",
     });
-    await c.sendMessage(chatId, t("sendAnotherHint", conv.lang));
+    await c.sendMessage(chatId, conv.lang === "en" ? "What next?" : "Apa seterusnya?", {
+      replyMarkup: ikb([
+        [{ text: t("newScreening", conv.lang), data: "restart" }],
+        [{ text: t("changeLanguage", conv.lang), data: "lang" }],
+      ]),
+    });
+
+    conv.state = "done";
+    await setConv(chatId, conv);
   } catch (err) {
     console.error("[telegram] pipeline error:", err);
     await c.sendMessage(chatId, t("processingFailed", conv.lang));
+    conv.state = "idle";
+    await setConv(chatId, conv);
   }
 }
 
@@ -185,7 +200,7 @@ export async function handleTelegramUpdate(
   client: TelegramClient,
   update: TgUpdate
 ): Promise<void> {
-  // ---- Callback (language buttons only) ----
+  // ---- Callback (button) ----
   if (update.callback_query) {
     const q = update.callback_query;
     const chatId = q.message?.chat.id;
@@ -196,8 +211,46 @@ export async function handleTelegramUpdate(
 
     if (data.startsWith("lang:")) {
       conv.lang = data.endsWith(":bm") ? "bm" : "en";
+      conv.state = "idle";
       await setConv(chatId, conv);
-      await sendWelcome(client, chatId, conv);
+      await sendWelcome(client, chatId, conv.lang);
+      return;
+    }
+    if (data === "lang") return sendLanguagePicker(client, chatId);
+    if (data === "about") {
+      await client.sendMessage(chatId, t("aboutMessage", conv.lang), { parseMode: "Markdown" });
+      return;
+    }
+    if (data === "begin" || data === "restart") {
+      conv.q = {};
+      conv.photoFileId = undefined;
+      conv.state = "await_photo";
+      await setConv(chatId, conv);
+      await client.sendMessage(chatId, t("askPhoto", conv.lang), { parseMode: "Markdown" });
+      return;
+    }
+
+    // Questionnaire answers
+    const apply: Record<string, () => void> = {
+      age: () => { conv.q.age = AGE_VALUES[parseInt(data.split(":")[1], 10)] ?? 30; conv.state = "await_tobacco"; },
+      tobacco: () => { conv.q.tobacco = data.endsWith(":y"); conv.state = "await_alcohol"; },
+      alcohol: () => { conv.q.alcohol = data.endsWith(":y"); conv.state = "await_betel"; },
+      betel: () => { conv.q.betelQuid = data.endsWith(":y"); conv.state = "await_family"; },
+      family: () => { conv.q.familyHistory = data.endsWith(":y"); conv.state = "await_lesion"; },
+      lesion: () => { conv.q.lesionDurationWeeks = LESION_VALUES[parseInt(data.split(":")[1], 10)] ?? 0; conv.state = "await_pain"; },
+      pain: () => { conv.q.pain = data.endsWith(":y"); conv.state = "await_bleeding"; },
+      bleeding: () => { conv.q.bleeding = data.endsWith(":y"); conv.state = "await_ulcer"; },
+      ulcer: () => { conv.q.ulcer = data.endsWith(":y"); conv.state = "processing"; },
+    };
+    const key = data.split(":")[0];
+    if (apply[key]) {
+      apply[key]();
+      await setConv(chatId, conv);
+      if (conv.state === "processing") {
+        await runPipeline(client, chatId, conv);
+      } else {
+        await askState(client, chatId, conv.lang, conv.state);
+      }
     }
     return;
   }
@@ -208,51 +261,54 @@ export async function handleTelegramUpdate(
   const chatId = msg.chat.id;
   const conv = await getConv(chatId);
   conv.firstName = msg.from?.first_name ?? conv.firstName;
-  await setConv(chatId, conv);
 
   // Commands
-  if (msg.text?.startsWith("/start") || msg.text?.startsWith("/help")) {
-    return sendWelcome(client, chatId, conv);
-  }
-  if (msg.text?.startsWith("/language")) {
+  if (msg.text?.startsWith("/start")) {
+    conv.state = "await_language";
+    conv.q = {};
+    conv.photoFileId = undefined;
+    await setConv(chatId, conv);
     return sendLanguagePicker(client, chatId);
   }
-  if (
-    msg.text?.startsWith("/anotherpatient") ||
-    msg.text?.startsWith("/changepatient")
-  ) {
-    conv.patientKey = nextDemoPatientKey(conv.patientKey);
+  if (msg.text?.startsWith("/cancel")) {
+    conv.state = "idle";
+    conv.q = {};
+    conv.photoFileId = undefined;
     await setConv(chatId, conv);
-    const card = formatPatientCard(activePatient(conv), conv.lang);
-    await client.sendMessage(
-      chatId,
-      t("switchedPatient", conv.lang, { card }),
-      { parseMode: "Markdown" }
-    );
+    await client.sendMessage(chatId, t("cancelled", conv.lang));
     return;
   }
-  if (msg.text?.startsWith("/about")) {
-    await client.sendMessage(chatId, t("aboutMessage", conv.lang), {
-      parseMode: "Markdown",
-    });
-    return;
+  if (msg.text?.startsWith("/help")) {
+    return sendWelcome(client, chatId, conv.lang);
   }
 
-  // Photo → run immediately. No state machine, no questions, no buttons.
+  // Photo
   if (msg.photo && msg.photo.length > 0) {
+    if (conv.state !== "await_photo") {
+      await client.sendMessage(
+        chatId,
+        conv.lang === "en"
+          ? "Thanks! Send /start to begin a screening."
+          : "Terima kasih! Hantar /start untuk mula saringan."
+      );
+      return;
+    }
     const largest = msg.photo[msg.photo.length - 1];
-    await runPipeline(client, chatId, conv, largest.file_id);
+    conv.photoFileId = largest.file_id;
+    conv.state = "await_age";
+    await setConv(chatId, conv);
+    await client.sendMessage(chatId, t("photoReceived", conv.lang));
+    await askState(client, chatId, conv.lang, "await_age");
     return;
   }
 
-  // Documents that are actually images (sent as file) also work.
-  if (msg.document?.mime_type?.startsWith("image/") && msg.document.file_id) {
-    await runPipeline(client, chatId, conv, msg.document.file_id);
+  // Fallback text
+  if (conv.state === "await_photo") {
+    await client.sendMessage(chatId, t("notPhoto", conv.lang), { parseMode: "Markdown" });
     return;
   }
-
-  // Anything else → one-line nudge.
-  await client.sendMessage(chatId, t("notPhoto", conv.lang), {
-    parseMode: "Markdown",
-  });
+  if (conv.state === "await_language" || conv.state === "idle") {
+    return sendLanguagePicker(client, chatId);
+  }
+  await client.sendMessage(chatId, t("unexpected", conv.lang));
 }

@@ -24,20 +24,12 @@ export interface TgPhotoSize {
   width: number;
   height: number;
 }
-export interface TgDocument {
-  file_id: string;
-  file_unique_id: string;
-  file_name?: string;
-  mime_type?: string;
-}
 export interface TgMessage {
   message_id: number;
   chat: TgChat;
   from?: { id: number; first_name?: string; username?: string };
   text?: string;
   photo?: TgPhotoSize[];
-  /** Images sent as uncompressed files arrive as documents. */
-  document?: TgDocument;
 }
 export interface TgCallbackQuery {
   id: string;
